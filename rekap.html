@@ -1,3 +1,4 @@
+
 <!DOCTYPE html><html lang="id"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Rekap Periode — Total Bayar Per Periode</title>
@@ -5,13 +6,9 @@
   :root { --bg:#0b1020; --card:#111936; --ink:#e8ecf1; --muted:#a7b1c5; --line:#253066; --hi:#5ac8fa; }
   *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#0b1020,#0e1634);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
   header{padding:18px 14px;border-bottom:1px solid #1a2350} h1{margin:0;font-size:20px} .sub{color:var(--muted);font-size:13px;margin-top:6px}
-  main{max-width:820px;margin:18px auto;padding:0 14px 48px} .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);margin-bottom:12px}
+  main{max-width:820px;margin:18px auto;padding:0 14px 48px} .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,25);margin-bottom:12px}
   .section{padding:14px} .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   button{border-radius:10px;border:1px solid #2a3770;background:#0f1838;color:#e8ecf1;padding:10px 12px;cursor:pointer;font-weight:700}
-  #btnOpenForm{background:#f97316;border-color:#ea580c;color:#0b1020}
-  #btnToggleControls{padding:10px 10px;min-width:42px;font-size:18px;line-height:1;text-align:center}
-  #extraControls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .is-hidden{display:none}
   .badge{display:inline-block;font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid #2a3770;color:#a7b1c5}
   .table-wrap{overflow:auto;border-top:1px solid #1f2750} table{width:100%;border-collapse:collapse}
   th,td{padding:10px 12px;border-bottom:1px solid #1f2750;text-align:left;font-size:14px} th{position:sticky;top:0;background:#121a3f}
@@ -21,170 +18,30 @@
 <main>
   <section class="card section">
     <div class="row">
-      <button id="btnOpenForm">form baru</button>
-      <button id="btnToggleControls" aria-expanded="false" title="Tampilkan opsi lain">Tampilkan opsi</button>
-      <div id="extraControls" class="is-hidden">
-        <span id="seqBadge" class="badge">Next: ?new=1</span>
-        <button id="btnResetSeq">Reset Nomor (?new=1)</button>
-        <button id="btnReload">Muat Ulang</button>
-        <select id="order"><option value="desc" selected>Urut Terbaru → Lama</option><option value="asc">Urut Lama → Terbaru</option></select>
-        <button id="btnExport">Ekspor CSV</button><input id="imp" type="file" accept=".csv,text/csv" style="display:none"/><button id="btnImport">Impor CSV</button>
-        <span class="badge" id="counter">0 periode</span>
-      </div>
+      <button id="btnOpenForm">Buka Form (Auto-close)</button>
+      <span id="seqBadge" class="badge">Next: ?new=1</span>
+      <button id="btnResetSeq">Reset Nomor (?new=1)</button>
+      <button id="btnReload">Muat Ulang</button>
+      <select id="order"><option value="desc" selected>Urut Terbaru → Lama</option><option value="asc">Urut Lama → Terbaru</option></select>
+      <button id="btnExport">Ekspor CSV</button><input id="imp" type="file" accept=".csv,text/csv" style="display:none"/><button id="btnImport">Impor CSV</button>
+      <span class="badge" id="counter">0 periode</span>
     </div>
   </section>
   <section class="card"><div class="table-wrap">
     <table><thead><tr>
-  <th>Periode Mulai</th>
-  <th>Periode Selesai</th>
-  <th class="right">Total Bayar Periode</th>
-  <th>Sumber</th>
-  <th>Aksi</th>
-</tr></thead>
+      <th>Periode Mulai</th>
+      <th>Periode Selesai</th>
+      <th class="right">Total Bayar Periode</th>
+      <th>Sumber</th>
+      <th>Aksi</th>
+    </tr></thead>
       <tbody id="tbody"><tr class="empty"><td colspan="5">Belum ada data. Buka form, isi & tekan <b>Simpan</b>.</td></tr></tbody>
       <tfoot><tr><td colspan="2" class="right sum">GRAND TOTAL</td><td id="grand" class="right sum">Rp 0</td></tr></tfoot>
     </table></div>
   </section>
 </main>
-<script>
-  const KEY_HISTORY='upah20_period_history_v2', KEY_SEQ='upah20_new_sequence_counter';
-  function load(){ try{return JSON.parse(localStorage.getItem(KEY_HISTORY))||[];}catch(_){return [];} }
-  function rp(n){ n=Number(n||0); return 'Rp ' + n.toLocaleString('id-ID'); }
-  function getSeq(){ const v=parseInt(localStorage.getItem(KEY_SEQ)||'1',10); return isNaN(v)||v<1?1:v; }
-  function setSeq(n){ localStorage.setItem(KEY_SEQ,String(n)); }
-  function refreshBadge(){ document.getElementById('seqBadge').textContent='Next: ?new='+getSeq(); }
-  function render(){
-    let arr=load(); const order=document.getElementById('order').value||'desc'; const tbody=document.getElementById('tbody'); tbody.innerHTML='';
-    if(!arr.length){ tbody.innerHTML='<tr class="empty"><td colspan="3">Belum ada data.</td></tr>'; document.getElementById('counter').textContent='0 periode'; document.getElementById('grand').textContent='Rp 0'; return; }
-    arr.sort((a,b)=> order==='desc'? b.periodeMulai.localeCompare(a.periodeMulai) : a.periodeMulai.localeCompare(b.periodeMulai));
-    let grand=0; for(const r of arr){ grand+=Number(r.sumTotal||0); const tr=document.createElement('tr'); const key = `${r.periodeMulai||''}__${r.periodeSelesai||''}`;
-tr.innerHTML = `
-  <td>${r.periodeMulai||''}</td>
-  <td>${r.periodeSelesai||''}</td>
-  <td class="right">${rp(r.sumTotal||0)}</td>
-  <td><a href='UPAH_TUKANG_7_HARI_period_calendar- Master_autosave_patched.html?hist=${encodeURIComponent(r.periodeMulai||'')}' target='_blank'>Buka Data</a></td>
-  <td><button class="btnDel" data-k="${key}" title="Hapus baris ini">Hapus</button></td>
-`; tbody.appendChild(tr); }
-    document.getElementById('counter').textContent=arr.length+' periode'; document.getElementById('grand').textContent=rp(grand);
-  }
-  document.getElementById('btnOpenForm').addEventListener('click', ()=>{ const n=getSeq(); window.open('UPAH_TUKANG_7_HARI_period_calendar- Master_autosave_patched.html?new='+n,'_blank'); setTimeout(()=>{ setSeq(getSeq()+1); refreshBadge(); },200); });
-  document.getElementById('btnResetSeq').addEventListener('click', ()=>{ if(confirm('Reset urutan ke ?new=1?')){ setSeq(1); refreshBadge(); } });
-  const toggleBtn=document.getElementById('btnToggleControls');
-  const extraControls=document.getElementById('extraControls');
-  if(toggleBtn && extraControls){
-    const syncToggleState=()=>{
-      const expanded=!extraControls.classList.contains('is-hidden');
-      toggleBtn.setAttribute('aria-expanded', String(expanded));
-      toggleBtn.textContent=expanded?'Sembunyikan opsi':'Tampilkan opsi';
-    };
-    syncToggleState();
-    toggleBtn.addEventListener('click', ()=>{
-      extraControls.classList.toggle('is-hidden');
-      syncToggleState();
-    });
-  }
-  document.getElementById('btnReload').addEventListener('click', render);
-  document.getElementById('order').addEventListener('change', render);
-  document.getElementById('btnExport').addEventListener('click', ()=>{
-    const arr=load(); if(!arr.length) return alert('Tidak ada data.');
-    const head=['Periode Mulai','Periode Selesai','Total Bayar Periode'];
-    const rows=[head].concat(arr.map(r=>[r.periodeMulai||'', r.periodeSelesai||'', (r.sumTotal||0)]));
-    const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); 
 
-// === Import CSV (merge to history) ===
-document.getElementById('btnImport').addEventListener('click', ()=>{
-  document.getElementById('imp').click();
-});
-document.getElementById('imp').addEventListener('change', async (e)=>{
-  const f = e.target.files && e.target.files[0];
-  if(!f) return;
-  try {
-    const text = await f.text();
-    // very simple CSV parse (handles quotes)
-    const rows = text.replace(/\r/g,'').split('\n').filter(Boolean).map(line=>{
-      const out=[]; let cur=''; let q=false;
-      for(let i=0;i<line.length;i++){
-        const ch=line[i];
-        if(ch === '"'){
-          if(q && line[i+1] === '"'){ cur += '"'; i++; } else { q=!q; }
-        }else if(ch === ',' && !q){ out.push(cur); cur=''; }
-        else { cur += ch; }
-      }
-      out.push(cur);
-      return out.map(s=>s.trim());
-    });
-    if(!rows.length) return alert('File kosong');
-    const header = rows[0].map(h=>h.toLowerCase());
-    const idxMulai = header.indexOf('periode mulai');
-    const idxSelesai = header.indexOf('periode selesai');
-    const idxTotal = header.indexOf('total bayar periode');
-    if(idxMulai<0 || idxSelesai<0 || idxTotal<0){
-      return alert('Header tidak cocok. Butuh kolom: Periode Mulai, Periode Selesai, Total Bayar Periode');
-    }
-    const incoming = rows.slice(1).map(r=> ({
-      periodeMulai: r[idxMulai]||'',
-      periodeSelesai: r[idxSelesai]||'',
-      sumTotal: Number((r[idxTotal]||'0').toString().replace(/[^\d.-]/g,'')) || 0
-    })).filter(x=>x.periodeMulai);
-
-    const KEY_HISTORY='upah20_period_history_v2';
-    const current = (function(){ try{return JSON.parse(localStorage.getItem(KEY_HISTORY))||[];}catch(_){return [];} })();
-    const keyOf = (o)=> `${o.periodeMulai}__${o.periodeSelesai}`;
-    const map = new Map(current.map(o=>[keyOf(o), o]));
-    let added=0, updated=0;
-    for(const it of incoming){
-      const k=keyOf(it);
-      if(map.has(k)){
-        const prev = map.get(k);
-        if(Number(prev.sumTotal||0) !== Number(it.sumTotal||0)){
-          map.set(k, {...prev, sumTotal: it.sumTotal}); updated++;
-        }
-      } else {
-        map.set(k, it); added++;
-      }
-    }
-    const merged = Array.from(map.values());
-    localStorage.setItem(KEY_HISTORY, JSON.stringify(merged));
-    alert(`Import selesai. Ditambahkan: ${added}, Diupdate: ${updated}.`);
-    render();
-  } catch(err){
-    console.error(err);
-    alert('Gagal mengimpor CSV.');
-  } finally {
-    e.target.value='';
-  }
-});
-
-const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='rekap-periode-total-bayar.csv'; a.click(); URL.revokeObjectURL(url);
-  });
-  
-// Auto-refresh when page gains focus, becomes visible, restored from BFCache, or storage changes in another tab
-window.addEventListener('focus', render);
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
-window.addEventListener('pageshow', (e)=>{ if(e.persisted) render(); });
-window.addEventListener('storage', (e)=>{ if(e.key === KEY_HISTORY) render(); });
-
-refreshBadge();
-render();
-function removeByKey(k){
-  const arr = load().filter(o => `${o.periodeMulai}__${o.periodeSelesai}` !== k);
-  localStorage.setItem(KEY_HISTORY, JSON.stringify(arr));
-  render();
-}
-
-document.getElementById('tbody').addEventListener('click', (e)=>{
-  const btn = e.target.closest('.btnDel');
-  if(!btn) return;
-  const k = btn.getAttribute('data-k');
-  if(!k) return;
-  if(confirm('Hapus entri periode ini?')){
-    removeByKey(k);
-  }
-});
-
-</script>
-
+<!-- Netlify Blobs sync helpers (via Functions) -->
 <script>
 const __API_BASE__='/.netlify/functions/state';
 async function serverGetRaw(key){
@@ -222,121 +79,143 @@ async function syncToServer(keys){
 </script>
 
 <script>
-(function(){
-  const KEY_HISTORY='upah20_period_history_v2';
-  const KEY_SEQ='upah20_new_sequence_counter';
-  async function initialSync(){
-    await syncFromServer([KEY_HISTORY, KEY_SEQ]);
-    try{
-      if (typeof render === 'function') render();
-      if (typeof refreshBadge === 'function') refreshBadge();
-    }catch(_){}
-  }
+// Rekap logic
+const KEY_HISTORY='upah20_period_history_v2', KEY_SEQ='upah20_new_sequence_counter';
+function loadHistory(){ try{return JSON.parse(localStorage.getItem(KEY_HISTORY))||[];}catch(_){return [];} }
+function rp(n){ n=Number(n||0); return 'Rp ' + n.toLocaleString('id-ID'); }
+function getSeq(){ const v=parseInt(localStorage.getItem(KEY_SEQ)||'1',10); return isNaN(v)||v<1?1:v; }
+function setSeq(n){ localStorage.setItem(KEY_SEQ,String(n)); }
+function refreshBadge(){ const b=document.getElementById('seqBadge'); if(b) b.textContent='Next: ?new='+getSeq(); }
 
-  function hookButtons(){
-    try{
-      const ids=['btnImport','btnExport','btnReload','btnResetSeq'];
-      ids.forEach(id=>{
-        const el=document.getElementById(id);
-        if(!el) return;
-        el.addEventListener('click', ()=>{
-          setTimeout(()=>{ syncToServer([KEY_HISTORY, KEY_SEQ]); }, 300);
-        });
-      });
-      const tb=document.getElementById('tbody');
-      if(tb){
-        tb.addEventListener('click', (e)=>{
-          if(e.target && e.target.closest('.btnDel')){
-            setTimeout(()=>{ syncToServer([KEY_HISTORY]); }, 300);
-          }
-        });
-      }
-      window.addEventListener('storage', (e)=>{
-        if(e.key===KEY_HISTORY || e.key===KEY_SEQ){
-          setTimeout(()=>{ syncToServer([KEY_HISTORY, KEY_SEQ]); }, 200);
-        }
-      });
-    }catch(_){}
+function render(){
+  let arr=loadHistory();
+  const order=document.getElementById('order').value||'desc';
+  const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+  if(!arr.length){
+    tbody.innerHTML='<tr class="empty"><td colspan="5">Belum ada data. Buka form, isi & tekan <b>Simpan</b>.</td></tr>';
+    document.getElementById('counter').textContent='0 periode';
+    document.getElementById('grand').textContent='Rp 0';
+    return;
   }
-
-  if (document.readyState === 'complete' || document.readyState === 'interactive'){
-    setTimeout(()=>{ initialSync(); hookButtons(); }, 0);
-  } else {
-    document.addEventListener('DOMContentLoaded', function(){
-      initialSync(); hookButtons();
-    }, {once:true});
+  arr.sort((a,b)=> order==='desc'? b.periodeMulai.localeCompare(a.periodeMulai) : a.periodeMulai.localeCompare(b.periodeMulai));
+  let grand=0;
+  for(const r of arr){
+    grand+=Number(r.sumTotal||0);
+    const tr=document.createElement('tr');
+    const key = `${r.periodeMulai||''}__${r.periodeSelesai||''}`;
+    const hist = encodeURIComponent(r.periodeMulai||'');
+    tr.innerHTML = `
+      <td>${r.periodeMulai||''}</td>
+      <td>${r.periodeSelesai||''}</td>
+      <td class="right">${rp(r.sumTotal||0)}</td>
+      <td><a href="form.html?hist=${hist}" target="_blank">Buka Data</a></td>
+      <td><button class="btnDel" data-k="${key}" title="Hapus">Hapus</button></td>
+    `;
+    tbody.appendChild(tr);
   }
-})();
+  document.getElementById('counter').textContent=arr.length+' periode';
+  document.getElementById('grand').textContent=rp(grand);
+}
 </script>
 
-
-<!-- Fix: robust opener and link normalization -->
 <script>
-(function(){
-  function normalizeLinks(){
-    try{
-      var tbody = document.getElementById('tbody');
-      if(!tbody) return;
-      tbody.querySelectorAll('a').forEach(function(a){
-        try{
-          var u = new URL(a.href, location.href);
-          if(!/form\.html$/i.test(u.pathname)){
-            // assume it was the old long name; switch to form.html while preserving query (?hist=...)
-            var hist = u.searchParams.get('hist');
-            var nu = new URL('form.html', location.href);
-            if(hist) nu.searchParams.set('hist', hist);
-            a.href = nu.toString();
-          }
-        }catch(_){}
-      });
-    }catch(_){}
+// UI events + sync
+document.getElementById('btnOpenForm').addEventListener('click', async (e)=>{
+  e.preventDefault();
+  const n=getSeq();
+  const url=new URL('form.html', location.href);
+  url.searchParams.set('new', n);
+  try{
+    const r = await fetch(url.toString(), { method:'HEAD' });
+    if(!r.ok) throw 0;
+    window.open(url.toString(),'_blank');
+    setTimeout(()=>{ setSeq(getSeq()+1); refreshBadge(); syncToServer([KEY_SEQ]); },200);
+  }catch(_){
+    alert('form.html tidak ditemukan di folder yang sama.\nPastikan file itu ada di root deploy & huruf kecil semua.');
   }
+});
+document.getElementById('btnResetSeq').addEventListener('click', ()=>{ if(confirm('Reset urutan ke ?new=1?')){ setSeq(1); refreshBadge(); syncToServer([KEY_SEQ]); } });
+document.getElementById('btnReload').addEventListener('click', render);
+document.getElementById('order').addEventListener('change', render);
 
-  function installBtnFix(){
-    var btn = document.getElementById('btnOpenForm');
-    if(!btn) return;
-    // Remove previous listeners by node replacement
-    var clone = btn.cloneNode(true);
-    btn.replaceWith(clone);
-    btn = clone;
-    btn.addEventListener('click', async function(e){
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      var n = (typeof getSeq==='function' ? getSeq() : 1);
-      var url = new URL('form.html', location.href);
-      url.searchParams.set('new', n);
-      try{
-        var r = await fetch(url.toString(), { method:'HEAD' });
-        if(!r.ok) throw 0;
-        window.open(url.toString(), '_blank');
-        if (typeof setSeq==='function' && typeof refreshBadge==='function'){
-          setTimeout(function(){ setSeq(n+1); refreshBadge(); }, 200);
-        }
-      }catch(_){
-        alert('Halaman form tidak ditemukan di: ' + url.pathname + '\nPastikan "form.html" ada di folder yang sama.');
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const arr=loadHistory(); if(!arr.length) return alert('Tidak ada data.');
+  const head=['Periode Mulai','Periode Selesai','Total Bayar Periode'];
+  const rows=[head].concat(arr.map(r=>[r.periodeMulai||'', r.periodeSelesai||'', (r.sumTotal||0)]));
+  const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='rekap-periode-total-bayar.csv'; a.click(); URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('imp').click());
+document.getElementById('imp').addEventListener('change', async (e)=>{
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  try {
+    const text = await f.text();
+    const rows = text.replace(/\r/g,'').split('\n').filter(Boolean).map(line=>{
+      const out=[]; let cur=''; let q=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch === '"'){ if(q && line[i+1] === '"'){ cur += '"'; i++; } else { q=!q; } }
+        else if(ch === ',' && !q){ out.push(cur); cur=''; }
+        else { cur += ch; }
       }
+      out.push(cur);
+      return out.map(s=>s.trim());
     });
-  }
+    if(!rows.length) return alert('File kosong');
+    const header = rows[0].map(h=>h.toLowerCase());
+    const idxMulai = header.indexOf('periode mulai');
+    const idxSelesai = header.indexOf('periode selesai');
+    const idxTotal = header.indexOf('total bayar periode');
+    if(idxMulai<0 || idxSelesai<0 || idxTotal<0){
+      return alert('Header tidak cocok. Butuh kolom: Periode Mulai, Periode Selesai, Total Bayar Periode');
+    }
+    const incoming = rows.slice(1).map(r=> ({
+      periodeMulai: r[idxMulai]||'',
+      periodeSelesai: r[idxSelesai]||'',
+      sumTotal: Number((r[idxTotal]||'0').toString().replace(/[^\d.-]/g,'')) || 0
+    })).filter(x=>x.periodeMulai);
 
-  function wrapRender(){
-    try{
-      var orig = window.render;
-      if(typeof orig !== 'function') return;
-      window.render = function(){
-        var res = orig.apply(this, arguments);
-        try{ normalizeLinks(); }catch(_){}
-        return res;
-      };
-    }catch(_){}
+    const current = loadHistory();
+    const keyOf = (o)=> `${o.periodeMulai}__${o.periodeSelesai}`;
+    const map = new Map(current.map(o=>[keyOf(o), o]));
+    let added=0, updated=0;
+    for(const it of incoming){
+      const k=keyOf(it);
+      if(map.has(k)){
+        const prev = map.get(k);
+        if(Number(prev.sumTotal||0) !== Number(it.sumTotal||0)){
+          map.set(k, {...prev, sumTotal: it.sumTotal}); updated++;
+        }
+      } else {
+        map.set(k, it); added++;
+      }
+    }
+    const merged = Array.from(map.values());
+    localStorage.setItem(KEY_HISTORY, JSON.stringify(merged));
+    await syncToServer([KEY_HISTORY]);
+    alert(`Import selesai. Ditambahkan: ${added}, Diupdate: ${updated}.`);
+    render();
+  } catch(err){
+    console.error(err);
+    alert('Gagal mengimpor CSV.');
+  } finally {
+    e.target.value='';
   }
+});
 
-  if (document.readyState === 'complete' || document.readyState === 'interactive'){
-    setTimeout(function(){ installBtnFix(); wrapRender(); normalizeLinks(); }, 0);
-  } else {
-    document.addEventListener('DOMContentLoaded', function(){
-      installBtnFix(); wrapRender(); normalizeLinks();
-    }, {once:true});
-  }
+// Auto refresh & cross-tab sync
+window.addEventListener('focus', render);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
+window.addEventListener('pageshow', (e)=>{ if(e.persisted) render(); });
+window.addEventListener('storage', (e)=>{ if(e.key === KEY_HISTORY){ render(); } });
+
+// Initial: tarik dari server, lalu render
+(async function init(){
+  await syncFromServer([KEY_HISTORY, KEY_SEQ]);
+  refreshBadge();
+  render();
 })();
 </script>
 
