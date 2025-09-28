@@ -9,6 +9,9 @@
   .section{padding:14px} .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   button{border-radius:10px;border:1px solid #2a3770;background:#0f1838;color:#e8ecf1;padding:10px 12px;cursor:pointer;font-weight:700}
   #btnOpenForm{background:#f97316;border-color:#ea580c;color:#0b1020}
+  #btnToggleControls{padding:10px 10px;min-width:42px;font-size:18px;line-height:1;text-align:center}
+  #extraControls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .is-hidden{display:none}
   .badge{display:inline-block;font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid #2a3770;color:#a7b1c5}
   .table-wrap{overflow:auto;border-top:1px solid #1f2750} table{width:100%;border-collapse:collapse}
   th,td{padding:10px 12px;border-bottom:1px solid #1f2750;text-align:left;font-size:14px} th{position:sticky;top:0;background:#121a3f}
@@ -19,12 +22,15 @@
   <section class="card section">
     <div class="row">
       <button id="btnOpenForm">form baru</button>
-      <span id="seqBadge" class="badge">Next: ?new=1</span>
-      <button id="btnResetSeq">Reset Nomor (?new=1)</button>
-      <button id="btnReload">Muat Ulang</button>
-      <select id="order"><option value="desc" selected>Urut Terbaru → Lama</option><option value="asc">Urut Lama → Terbaru</option></select>
-      <button id="btnExport">Ekspor CSV</button><input id="imp" type="file" accept=".csv,text/csv" style="display:none"/><button id="btnImport">Impor CSV</button>
-      <span class="badge" id="counter">0 periode</span>
+      <button id="btnToggleControls" aria-expanded="false" title="Tampilkan opsi lain">⋮</button>
+      <div id="extraControls" class="is-hidden">
+        <span id="seqBadge" class="badge">Next: ?new=1</span>
+        <button id="btnResetSeq">Reset Nomor (?new=1)</button>
+        <button id="btnReload">Muat Ulang</button>
+        <select id="order"><option value="desc" selected>Urut Terbaru → Lama</option><option value="asc">Urut Lama → Terbaru</option></select>
+        <button id="btnExport">Ekspor CSV</button><input id="imp" type="file" accept=".csv,text/csv" style="display:none"/><button id="btnImport">Impor CSV</button>
+        <span class="badge" id="counter">0 periode</span>
+      </div>
     </div>
   </section>
   <section class="card"><div class="table-wrap">
@@ -63,6 +69,15 @@ tr.innerHTML = `
   }
   document.getElementById('btnOpenForm').addEventListener('click', ()=>{ const n=getSeq(); window.open('UPAH_TUKANG_7_HARI_period_calendar- Master_autosave_patched.html?new='+n,'_blank'); setTimeout(()=>{ setSeq(getSeq()+1); refreshBadge(); },200); });
   document.getElementById('btnResetSeq').addEventListener('click', ()=>{ if(confirm('Reset urutan ke ?new=1?')){ setSeq(1); refreshBadge(); } });
+  const toggleBtn=document.getElementById('btnToggleControls');
+  const extraControls=document.getElementById('extraControls');
+  if(toggleBtn && extraControls){
+    toggleBtn.addEventListener('click', ()=>{
+      extraControls.classList.toggle('is-hidden');
+      const expanded=!extraControls.classList.contains('is-hidden');
+      toggleBtn.setAttribute('aria-expanded', String(expanded));
+    });
+  }
   document.getElementById('btnReload').addEventListener('click', render);
   document.getElementById('order').addEventListener('change', render);
   document.getElementById('btnExport').addEventListener('click', ()=>{
