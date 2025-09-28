@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="id">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upah Tukang — Server Sync</title>
+<style>
+  body{margin:0;font:16px system-ui,Segoe UI,Roboto,Arial;background:#0b1020;color:#e8ecf1;display:grid;place-items:center;min-height:100vh;padding:24px}
+  .card{background:#111936;border:1px solid #253066;border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:680px;width:100%}
+  h1{margin:0 0 12px;font-size:24px}
+  p{margin:0 0 18px;color:#a7b1c5}
+  a{display:block;margin:8px 0;padding:12px 14px;border:1px solid #2a3770;border-radius:12px;color:#e8ecf1;text-decoration:none;text-align:center}
+  a:hover{background:#0f1838}
+  .hint{font-size:13px;color:#8fa3c7;margin-top:16px}
+</style>
+<div class="card">
+  <h1>Upah Tukang (Netlify Server Sync)</h1>
+  <p>Pilih halaman:</p>
+  <a href="form.html">➤ Form Input & Rekap Harian (sinkron ke server)</a>
+  <a href="rekap.html">➤ Rekap Periode (sinkron ke server)</a>
+  <div class="hint">Penyimpanan: Netlify Blobs via Functions. Offline tetap tersimpan di localStorage, lalu disinkronkan saat online.</div>
+</div>

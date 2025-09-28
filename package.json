@@ -1,0 +1,8 @@
+{
+  "name": "upah-tukang-netlify-server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^6.3.0"
+  }
+}
