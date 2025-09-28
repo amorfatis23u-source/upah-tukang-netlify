@@ -22,7 +22,7 @@
   <section class="card section">
     <div class="row">
       <button id="btnOpenForm">form baru</button>
-      <button id="btnToggleControls" aria-expanded="false" title="Tampilkan opsi lain">⋮</button>
+      <button id="btnToggleControls" aria-expanded="false" title="Tampilkan opsi lain">Tampilkan opsi</button>
       <div id="extraControls" class="is-hidden">
         <span id="seqBadge" class="badge">Next: ?new=1</span>
         <button id="btnResetSeq">Reset Nomor (?new=1)</button>
@@ -72,10 +72,15 @@ tr.innerHTML = `
   const toggleBtn=document.getElementById('btnToggleControls');
   const extraControls=document.getElementById('extraControls');
   if(toggleBtn && extraControls){
-    toggleBtn.addEventListener('click', ()=>{
-      extraControls.classList.toggle('is-hidden');
+    const syncToggleState=()=>{
       const expanded=!extraControls.classList.contains('is-hidden');
       toggleBtn.setAttribute('aria-expanded', String(expanded));
+      toggleBtn.textContent=expanded?'Sembunyikan opsi':'Tampilkan opsi';
+    };
+    syncToggleState();
+    toggleBtn.addEventListener('click', ()=>{
+      extraControls.classList.toggle('is-hidden');
+      syncToggleState();
     });
   }
   document.getElementById('btnReload').addEventListener('click', render);
