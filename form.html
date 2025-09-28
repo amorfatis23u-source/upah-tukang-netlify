@@ -1,114 +1,123 @@
-
-<!doctype html><html lang="id"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Form (Snapshot v2)</title>
-<body>
-<h1>Form Demo</h1>
-<label>Periode Mulai <input id="periodStart" type="date"></label>
-<label>Periode Selesai <input id="periodEnd" type="date"></label>
-<button id="btnSave">Simpan</button>
-<pre id="out"></pre>
+<!doctype html><html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Form — Virtual Copy ?new=N</title>
+<style>
+  body{margin:0;font:16px system-ui,Segoe UI,Roboto,Arial;background:#0b1020;color:#e8ecf1}
+  .wrap{max-width:900px;margin:0 auto;padding:16px}
+  input,button{padding:8px 10px;border-radius:10px;border:1px solid #2a3770;background:#0f1838;color:#e8ecf1}
+  label{display:block;margin:8px 0}
+</style></head><body>
+<div class="wrap">
+  <h1>Form Input</h1>
+  <div id="hint" style="color:#a7b1c5;margin-bottom:8px"></div>
+  <label>Periode Mulai: <input id="periodStart" type="date"></label>
+  <label>Periode Selesai: <input id="periodEnd" type="date"></label>
+  <div style="margin:10px 0">
+    <button id="btnSave">Simpan</button>
+    <button id="btnAddRow">Tambah Baris</button>
+  </div>
+  <pre id="out"></pre>
+</div>
 
 <script>
-// ---- Simulasi state aplikasi asli ----
-let rows=[{pekerja:'A', d1:1}];
-let classRates={Senior:150000, Tukang:120000, Kenek:100000};
-let rumah=['R1','R2'];
-// Simulasi fungsi saveAll yang sudah ada di app asli
+let rows = JSON.parse(localStorage.getItem('upah20_rows')||'[]');
+let classRates = JSON.parse(localStorage.getItem('upah20_classRates')||'{"Senior":150000,"Tukang":120000,"Kenek":100000}');
+let rumah = JSON.parse(localStorage.getItem('upah20_rumah')||'[]');
+
+function bootRatesUI(){ /* placeholder */ }
+function renderRumah(){ /* placeholder */ }
+function rerender(){ document.getElementById('out').textContent = JSON.stringify({rows,classRates,rumah}, null, 2); }
+
 window.saveAll = function(){
-  // ... logic asli menyimpan ke localStorage ...
   localStorage.setItem('upah20_rows', JSON.stringify(rows));
   localStorage.setItem('upah20_classRates', JSON.stringify(classRates));
   localStorage.setItem('upah20_rumah', JSON.stringify(rumah));
-  localStorage.setItem('upah20_periodStart', document.getElementById('periodStart').value || '');
-  localStorage.setItem('upah20_periodEnd', document.getElementById('periodEnd').value || '');
-  document.getElementById('out').textContent='Saved base keys at '+new Date().toISOString();
+  localStorage.setItem('upah20_periodStart', document.getElementById('periodStart').value||'');
+  localStorage.setItem('upah20_periodEnd', document.getElementById('periodEnd').value||'');
+  document.getElementById('out').textContent='Saved at '+new Date().toISOString();
 };
 
-// ====== SNAPSHOT V2 (key pakai start & end) ======
-async function tryServerGet(key){
-  try{ const r=await fetch('/.netlify/functions/state?key='+encodeURIComponent(key));
-       if(!r.ok) return null; return await r.json(); }catch(_){ return null; }
-}
-async function tryServerSet(key, data){
-  try{ await fetch('/.netlify/functions/state', {
-    method:'POST', headers:{'content-type':'application/json'},
-    body: JSON.stringify({ key, data })
-  }); }catch(_){}
-}
+document.getElementById('btnAddRow').addEventListener('click', ()=>{ rows.push({pekerja:'(baru)', d1:0}); rerender(); });
+document.getElementById('btnSave').addEventListener('click', ()=>{ saveAll(); });
 
+async function tryServerGet(key){ try{ const r=await fetch('/.netlify/functions/state?key='+encodeURIComponent(key)); if(!r.ok) return null; return await r.json(); }catch(_){ return null; } }
+async function tryServerSet(key, data){ try{ await fetch('/.netlify/functions/state',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key,data})}); }catch(_){ } }
+
+// Virtual copy: jika ada ?new=N, reset state kerja (tanpa hapus tarif & rumah)
+(function(){
+  const p=new URLSearchParams(location.search);
+  const newN = p.get('new');
+  const hint = document.getElementById('hint');
+  if(newN){
+    rows = [];
+    localStorage.removeItem('upah20_rows');
+    localStorage.removeItem('upah20_periodStart');
+    localStorage.removeItem('upah20_periodEnd');
+    const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
+    if(ps){ ps.value=''; } if(pe){ pe.value=''; }
+    if(hint) hint.textContent = 'Mode NEW #'+newN+' — form baru (virtual copy). Simpan untuk membuat snapshot periode.';
+    try{ if (typeof rerender==='function') rerender(); }catch(_){}
+  } else {
+    if(hint) hint.textContent = 'Mode EDIT — memuat state aktif.';
+  }
+})();
+
+// Snapshot V2 saat Simpan
 (function(){
   const PREFIX='upah20_snap__';
   const orig=window.saveAll;
   if(typeof orig==='function'){
     window.saveAll = async function(){
-      const r=orig.apply(this, arguments);
+      const res=orig.apply(this, arguments);
       try{
         const ps=document.getElementById('periodStart')?.value||'';
         const pe=document.getElementById('periodEnd')?.value||'';
         if(ps){
-          // KEY V2: include start & end; fallback to start-only
           const keyV2 = PREFIX + ps + '__' + (pe||'na');
-          const snap = {
-            rows, classRates, rumah,
-            periodStart: ps, periodEnd: pe||'',
-            savedAt: new Date().toISOString(), version: 2
-          };
+          const snap = { rows, classRates, rumah, periodStart:ps, periodEnd:pe||'', savedAt:new Date().toISOString(), version:2 };
           try{ localStorage.setItem(keyV2, JSON.stringify(snap)); }catch(_){}
           await tryServerSet(keyV2, snap);
-          // juga simpan key lama untuk kompatibilitas
           const oldKey = PREFIX + ps;
           try{ localStorage.setItem(oldKey, JSON.stringify(snap)); }catch(_){}
           await tryServerSet(oldKey, snap);
         }
       }catch(_){}
-      return r;
+      return res;
     };
   }
 })();
 
+// Load snapshot bila datang dari rekap
 (async function(){
   const PREFIX='upah20_snap__';
   const p=new URLSearchParams(location.search);
   const histStart=p.get('histStart');
   const histEnd=p.get('histEnd');
   const histLegacy=p.get('hist'); // kompat lama
+  if(!(histStart||histLegacy)){ rerender(); return; }
 
-  if(!(histStart||histLegacy)) return;
-
-  const keyTry = [];
-  if(histStart) keyTry.push(PREFIX+histStart+'__'+(histEnd||'na'));
-  if(histStart) keyTry.push(PREFIX+histStart); // fallback
-  if(histLegacy) keyTry.push(PREFIX+histLegacy+'__na', PREFIX+histLegacy);
+  const keysToTry=[];
+  if(histStart) keysToTry.push(PREFIX+histStart+'__'+(histEnd||'na'));
+  if(histStart) keysToTry.push(PREFIX+histStart);
+  if(histLegacy) keysToTry.push(PREFIX+histLegacy+'__na', PREFIX+histLegacy);
 
   let snap=null;
-  for(const k of keyTry){
-    snap = await tryServerGet(k);
-    if(snap) break;
-  }
+  for(const k of keysToTry){ snap = await tryServerGet(k); if(snap) break; }
   if(!snap){
-    // fallback localStorage
-    for(const k of keyTry){
+    for(const k of keysToTry){
       try{ snap = JSON.parse(localStorage.getItem(k)||'null'); }catch(_){}
       if(snap) break;
     }
   }
-
   if(snap){
-    if(Array.isArray(snap.rows)) rows = snap.rows;
-    if(snap.classRates) classRates = snap.classRates;
-    if(Array.isArray(snap.rumah)) rumah = snap.rumah;
-    if(snap.periodStart) document.getElementById('periodStart').value = snap.periodStart;
-    if(snap.periodEnd) document.getElementById('periodEnd').value = snap.periodEnd;
-    document.getElementById('out').textContent='Loaded snapshot key for '+(histStart||histLegacy);
-  } else {
-    // minimal: set period dari query agar tidak kosong
-    if(histStart) document.getElementById('periodStart').value = histStart;
-    if(histEnd) document.getElementById('periodEnd').value = histEnd;
+    if(Array.isArray(snap.rows)) rows=snap.rows;
+    if(snap.classRates) classRates=snap.classRates;
+    if(Array.isArray(snap.rumah)) rumah=snap.rumah;
+    const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
+    if(ps) ps.value=snap.periodStart||histStart||'';
+    if(pe && (snap.periodEnd||'')) pe.value=snap.periodEnd;
   }
+  rerender();
 })();
-
-// Demo button
-document.getElementById('btnSave').addEventListener('click', ()=> saveAll());
 </script>
 </body></html>
