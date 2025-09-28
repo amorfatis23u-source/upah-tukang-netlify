@@ -1,222 +1,26 @@
 
-<!DOCTYPE html><html lang="id"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Rekap Periode — Total Bayar Per Periode</title>
-<style>
-  :root { --bg:#0b1020; --card:#111936; --ink:#e8ecf1; --muted:#a7b1c5; --line:#253066; --hi:#5ac8fa; }
-  *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#0b1020,#0e1634);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
-  header{padding:18px 14px;border-bottom:1px solid #1a2350} h1{margin:0;font-size:20px} .sub{color:var(--muted);font-size:13px;margin-top:6px}
-  main{max-width:820px;margin:18px auto;padding:0 14px 48px} .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,25);margin-bottom:12px}
-  .section{padding:14px} .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  button{border-radius:10px;border:1px solid #2a3770;background:#0f1838;color:#e8ecf1;padding:10px 12px;cursor:pointer;font-weight:700}
-  .badge{display:inline-block;font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid #2a3770;color:#a7b1c5}
-  .table-wrap{overflow:auto;border-top:1px solid #1f2750} table{width:100%;border-collapse:collapse}
-  th,td{padding:10px 12px;border-bottom:1px solid #1f2750;text-align:left;font-size:14px} th{position:sticky;top:0;background:#121a3f}
-  td.right,th.right{text-align:right} .empty{padding:20px;color:#a7b1c5;text-align:center} .sum{font-weight:800}
-</style></head><body>
-<header><h1>Rekap Periode</h1><div class="sub">Periode & Total Bayar Periode (tersimpan otomatis & saat klik <em>Simpan</em> di form).</div></header>
-<main>
-  <section class="card section">
-    <div class="row">
-      <button id="btnOpenForm">Buka Form (Auto-close)</button>
-      <span id="seqBadge" class="badge">Next: ?new=1</span>
-      <button id="btnResetSeq">Reset Nomor (?new=1)</button>
-      <button id="btnReload">Muat Ulang</button>
-      <select id="order"><option value="desc" selected>Urut Terbaru → Lama</option><option value="asc">Urut Lama → Terbaru</option></select>
-      <button id="btnExport">Ekspor CSV</button><input id="imp" type="file" accept=".csv,text/csv" style="display:none"/><button id="btnImport">Impor CSV</button>
-      <span class="badge" id="counter">0 periode</span>
-    </div>
-  </section>
-  <section class="card"><div class="table-wrap">
-    <table><thead><tr>
-      <th>Periode Mulai</th>
-      <th>Periode Selesai</th>
-      <th class="right">Total Bayar Periode</th>
-      <th>Sumber</th>
-      <th>Aksi</th>
-    </tr></thead>
-      <tbody id="tbody"><tr class="empty"><td colspan="5">Belum ada data. Buka form, isi & tekan <b>Simpan</b>.</td></tr></tbody>
-      <tfoot><tr><td colspan="2" class="right sum">GRAND TOTAL</td><td id="grand" class="right sum">Rp 0</td></tr></tfoot>
-    </table></div>
-  </section>
-</main>
-
-<!-- Netlify Blobs sync helpers (via Functions) -->
-<script>
-const __API_BASE__='/.netlify/functions/state';
-async function serverGetRaw(key){
-  try{
-    const r = await fetch(__API_BASE__+'?key='+encodeURIComponent(key), { credentials:'same-origin' });
-    if(!r.ok) return null;
-    return await r.json();
-  }catch(_){ return null; }
-}
-async function serverSetRaw(key, data){
-  try{
-    await fetch(__API_BASE__, {
-      method:'POST',
-      headers:{'content-type':'application/json'},
-      credentials:'same-origin',
-      body: JSON.stringify({ key, data })
-    });
-  }catch(_){}
-}
-async function syncFromServer(keys){
-  for(const k of keys){
-    const v = await serverGetRaw(k);
-    if(v!==null){
-      try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
-    }
-  }
-}
-async function syncToServer(keys){
-  for(const k of keys){
-    let v=null;
-    try{ v = localStorage.getItem(k); }catch(_){}
-    try{ await serverSetRaw(k, v ? JSON.parse(v) : null); }catch(_){}
-  }
-}
-</script>
+<!doctype html><html lang="id"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rekap Periode — Link dengan histStart & histEnd</title>
+<body>
+<h1>Rekap (Demo Tautan)</h1>
+<table id="demo"><thead><tr><th>Mulai</th><th>Selesai</th><th>Aksi</th></tr></thead><tbody></tbody></table>
 
 <script>
-// Rekap logic
-const KEY_HISTORY='upah20_period_history_v2', KEY_SEQ='upah20_new_sequence_counter';
-function loadHistory(){ try{return JSON.parse(localStorage.getItem(KEY_HISTORY))||[];}catch(_){return [];} }
-function rp(n){ n=Number(n||0); return 'Rp ' + n.toLocaleString('id-ID'); }
-function getSeq(){ const v=parseInt(localStorage.getItem(KEY_SEQ)||'1',10); return isNaN(v)||v<1?1:v; }
-function setSeq(n){ localStorage.setItem(KEY_SEQ,String(n)); }
-function refreshBadge(){ const b=document.getElementById('seqBadge'); if(b) b.textContent='Next: ?new='+getSeq(); }
+// Contoh data demo; pada file asli gunakan data dari localStorage (KEY_HISTORY)
+const sample=[
+  {periodeMulai:'2025-09-01', periodeSelesai:'2025-09-07', sumTotal: 1000000},
+  {periodeMulai:'2025-09-01', periodeSelesai:'2025-09-14', sumTotal: 2500000},
+  {periodeMulai:'2025-09-08', periodeSelesai:'2025-09-14', sumTotal: 1500000},
+];
 
-function render(){
-  let arr=loadHistory();
-  const order=document.getElementById('order').value||'desc';
-  const tbody=document.getElementById('tbody'); tbody.innerHTML='';
-  if(!arr.length){
-    tbody.innerHTML='<tr class="empty"><td colspan="5">Belum ada data. Buka form, isi & tekan <b>Simpan</b>.</td></tr>';
-    document.getElementById('counter').textContent='0 periode';
-    document.getElementById('grand').textContent='Rp 0';
-    return;
-  }
-  arr.sort((a,b)=> order==='desc'? b.periodeMulai.localeCompare(a.periodeMulai) : a.periodeMulai.localeCompare(b.periodeMulai));
-  let grand=0;
-  for(const r of arr){
-    grand+=Number(r.sumTotal||0);
-    const tr=document.createElement('tr');
-    const key = `${r.periodeMulai||''}__${r.periodeSelesai||''}`;
-    const hist = encodeURIComponent(r.periodeMulai||'');
-    tr.innerHTML = `
-      <td>${r.periodeMulai||''}</td>
-      <td>${r.periodeSelesai||''}</td>
-      <td class="right">${rp(r.sumTotal||0)}</td>
-      <td><a href="form.html?hist=${hist}" target="_blank">Buka Data</a></td>
-      <td><button class="btnDel" data-k="${key}" title="Hapus">Hapus</button></td>
-    `;
-    tbody.appendChild(tr);
-  }
-  document.getElementById('counter').textContent=arr.length+' periode';
-  document.getElementById('grand').textContent=rp(grand);
+const tb=document.querySelector('#demo tbody');
+for(const r of sample){
+  const tr=document.createElement('tr');
+  const qs=new URLSearchParams({histStart:r.periodeMulai||'', histEnd:r.periodeSelesai||''}).toString();
+  tr.innerHTML=`<td>${r.periodeMulai}</td><td>${r.periodeSelesai}</td>
+  <td><a target="_blank" href="form.html?${qs}">Buka Data</a></td>`;
+  tb.appendChild(tr);
 }
 </script>
-
-<script>
-// UI events + sync
-document.getElementById('btnOpenForm').addEventListener('click', async (e)=>{
-  e.preventDefault();
-  const n=getSeq();
-  const url=new URL('form.html', location.href);
-  url.searchParams.set('new', n);
-  try{
-    const r = await fetch(url.toString(), { method:'HEAD' });
-    if(!r.ok) throw 0;
-    window.open(url.toString(),'_blank');
-    setTimeout(()=>{ setSeq(getSeq()+1); refreshBadge(); syncToServer([KEY_SEQ]); },200);
-  }catch(_){
-    alert('form.html tidak ditemukan di folder yang sama.\nPastikan file itu ada di root deploy & huruf kecil semua.');
-  }
-});
-document.getElementById('btnResetSeq').addEventListener('click', ()=>{ if(confirm('Reset urutan ke ?new=1?')){ setSeq(1); refreshBadge(); syncToServer([KEY_SEQ]); } });
-document.getElementById('btnReload').addEventListener('click', render);
-document.getElementById('order').addEventListener('change', render);
-
-document.getElementById('btnExport').addEventListener('click', ()=>{
-  const arr=loadHistory(); if(!arr.length) return alert('Tidak ada data.');
-  const head=['Periode Mulai','Periode Selesai','Total Bayar Periode'];
-  const rows=[head].concat(arr.map(r=>[r.periodeMulai||'', r.periodeSelesai||'', (r.sumTotal||0)]));
-  const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='rekap-periode-total-bayar.csv'; a.click(); URL.revokeObjectURL(url);
-});
-
-document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('imp').click());
-document.getElementById('imp').addEventListener('change', async (e)=>{
-  const f = e.target.files && e.target.files[0]; if(!f) return;
-  try {
-    const text = await f.text();
-    const rows = text.replace(/\r/g,'').split('\n').filter(Boolean).map(line=>{
-      const out=[]; let cur=''; let q=false;
-      for(let i=0;i<line.length;i++){
-        const ch=line[i];
-        if(ch === '"'){ if(q && line[i+1] === '"'){ cur += '"'; i++; } else { q=!q; } }
-        else if(ch === ',' && !q){ out.push(cur); cur=''; }
-        else { cur += ch; }
-      }
-      out.push(cur);
-      return out.map(s=>s.trim());
-    });
-    if(!rows.length) return alert('File kosong');
-    const header = rows[0].map(h=>h.toLowerCase());
-    const idxMulai = header.indexOf('periode mulai');
-    const idxSelesai = header.indexOf('periode selesai');
-    const idxTotal = header.indexOf('total bayar periode');
-    if(idxMulai<0 || idxSelesai<0 || idxTotal<0){
-      return alert('Header tidak cocok. Butuh kolom: Periode Mulai, Periode Selesai, Total Bayar Periode');
-    }
-    const incoming = rows.slice(1).map(r=> ({
-      periodeMulai: r[idxMulai]||'',
-      periodeSelesai: r[idxSelesai]||'',
-      sumTotal: Number((r[idxTotal]||'0').toString().replace(/[^\d.-]/g,'')) || 0
-    })).filter(x=>x.periodeMulai);
-
-    const current = loadHistory();
-    const keyOf = (o)=> `${o.periodeMulai}__${o.periodeSelesai}`;
-    const map = new Map(current.map(o=>[keyOf(o), o]));
-    let added=0, updated=0;
-    for(const it of incoming){
-      const k=keyOf(it);
-      if(map.has(k)){
-        const prev = map.get(k);
-        if(Number(prev.sumTotal||0) !== Number(it.sumTotal||0)){
-          map.set(k, {...prev, sumTotal: it.sumTotal}); updated++;
-        }
-      } else {
-        map.set(k, it); added++;
-      }
-    }
-    const merged = Array.from(map.values());
-    localStorage.setItem(KEY_HISTORY, JSON.stringify(merged));
-    await syncToServer([KEY_HISTORY]);
-    alert(`Import selesai. Ditambahkan: ${added}, Diupdate: ${updated}.`);
-    render();
-  } catch(err){
-    console.error(err);
-    alert('Gagal mengimpor CSV.');
-  } finally {
-    e.target.value='';
-  }
-});
-
-// Auto refresh & cross-tab sync
-window.addEventListener('focus', render);
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
-window.addEventListener('pageshow', (e)=>{ if(e.persisted) render(); });
-window.addEventListener('storage', (e)=>{ if(e.key === KEY_HISTORY){ render(); } });
-
-// Initial: tarik dari server, lalu render
-(async function init(){
-  await syncFromServer([KEY_HISTORY, KEY_SEQ]);
-  refreshBadge();
-  render();
-})();
-</script>
-
 </body></html>
