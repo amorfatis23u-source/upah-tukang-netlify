@@ -2698,96 +2698,82 @@ function mapCsvToRows(arr){
 </script>
 
 
+<!-- ===== Snapshot per-periode untuk "Buka Data" dari rekap ===== -->
 <script>
-const __API_BASE__='/.netlify/functions/state';
-async function serverGetRaw(key){
-  try{
-    const r = await fetch(__API_BASE__+'?key='+encodeURIComponent(key), { credentials:'same-origin' });
-    if(!r.ok) return null;
-    return await r.json();
-  }catch(_){ return null; }
+// helper aman walau functions belum aktif
+async function tryServerGet(key){
+  try{ const r=await fetch('/.netlify/functions/state?key='+encodeURIComponent(key)); 
+       if(!r.ok) return null; return await r.json(); }catch(_){ return null; }
 }
-async function serverSetRaw(key, data){
-  try{
-    await fetch(__API_BASE__, {
-      method:'POST',
-      headers:{'content-type':'application/json'},
-      credentials:'same-origin',
-      body: JSON.stringify({ key, data })
-    });
-  }catch(_){}
+async function tryServerSet(key, data){
+  try{ await fetch('/.netlify/functions/state', {
+    method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ key, data })
+  }); }catch(_){}
 }
-async function syncFromServer(keys){
-  for(const k of keys){
-    const v = await serverGetRaw(k);
-    if(v!==null){
-      try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
-    }
-  }
-}
-async function syncToServer(keys){
-  for(const k of keys){
-    let v=null;
-    try{ v = localStorage.getItem(k); }catch(_){}
-    try{ await serverSetRaw(k, v ? JSON.parse(v) : null); }catch(_){}
-  }
-}
-</script>
 
-<script>
+// Simpan snapshot saat user klik Simpan (saveAll)
 (function(){
-  const KEYS=['upah20_rows','upah20_classRates','upah20_rumah','upah20_periodStart','upah20_periodEnd'];
-
-  async function bootServerOverlay(){
-    await syncFromServer(KEYS);
-    try{
-      if (typeof localStorage !== 'undefined'){
-        try{ const _rows = JSON.parse(localStorage.getItem('upah20_rows')||'null'); if (_rows && Array.isArray(_rows)) { if (typeof rows !== 'undefined') rows = _rows; } }catch(_){}
-        try{ const _cr = JSON.parse(localStorage.getItem('upah20_classRates')||'null'); if (_cr && typeof _cr === 'object') { if (typeof classRates !== 'undefined') classRates = _cr; } }catch(_){}
-        try{ const _rm = JSON.parse(localStorage.getItem('upah20_rumah')||'null'); if (_rm && Array.isArray(_rm)) { if (typeof rumah !== 'undefined') rumah = _rm; } }catch(_){}
-      }
-      try{ if (typeof bootRatesUI === 'function') bootRatesUI(); }catch(_){}
-      try{ if (typeof renderRumah === 'function') renderRumah(); }catch(_){}
-      try{ if (typeof rerender === 'function') rerender(); }catch(_){}
+  const SNAP_PREFIX = 'upah20_snap__';
+  const _origSaveAll = window.saveAll;
+  if (typeof _origSaveAll === 'function'){
+    window.saveAll = async function(){
+      const res = _origSaveAll.apply(this, arguments);
       try{
-        var ps=document.getElementById('periodStart');
-        var pe=document.getElementById('periodEnd');
-        if(ps){ var s=localStorage.getItem('upah20_periodStart')||''; if(s && !ps.value){ ps.value=s; } }
-        if(pe){ var e=localStorage.getItem('upah20_periodEnd')||''; if(e && !pe.value){ pe.value=e; } }
-      }catch(_){}
-    }catch(_){}
-  }
-
-  function wrapDoAutosave(){
-    try{
-      const orig = window.doAutosave;
-      if (typeof orig !== 'function') return;
-      window.doAutosave = async function(keys){
-        const res = orig.apply(this, arguments);
-        try{
-          const out = new Set();
-          if (!keys || (Array.isArray(keys) && keys.length===0)) { keys=['rows','classRates','rumah','period']; }
-          if (keys.includes('rows')) out.add('upah20_rows');
-          if (keys.includes('classRates')) out.add('upah20_classRates');
-          if (keys.includes('rumah')) out.add('upah20_rumah');
-          if (keys.includes('period')) { out.add('upah20_periodStart'); out.add('upah20_periodEnd'); }
-          await syncToServer(Array.from(out));
-        }catch(_){}
-        return res;
-      };
-    }catch(_){}
-  }
-
-  if (document.readyState === 'complete' || document.readyState === 'interactive'){
-    setTimeout(()=>{ bootServerOverlay(); wrapDoAutosave(); }, 0);
-  } else {
-    document.addEventListener('DOMContentLoaded', function(){
-      bootServerOverlay();
-      wrapDoAutosave();
-    }, {once:true});
+        const ps = document.getElementById('periodStart')?.value || '';
+        const pe = document.getElementById('periodEnd')?.value || '';
+        if(ps){
+          const snap = { 
+            rows: (typeof rows!=='undefined'? rows : null),
+            classRates: (typeof classRates!=='undefined'? classRates : null),
+            rumah: (typeof rumah!=='undefined'? rumah : null),
+            periodStart: ps, periodEnd: pe, savedAt: new Date().toISOString()
+          };
+          try{ localStorage.setItem(SNAP_PREFIX+ps, JSON.stringify(snap)); }catch(_){}
+          await tryServerSet(SNAP_PREFIX+ps, snap);
+        }
+      }catch(e){}
+      return res;
+    };
   }
 })();
-</script>
 
+// Saat dibuka dari rekap: form.html?hist=YYYY-MM-DD
+(async function(){
+  const SNAP_PREFIX = 'upah20_snap__';
+  try{
+    const params = new URLSearchParams(location.search);
+    const hist = params.get('hist');
+    if(!hist) return;
+
+    let snap = await tryServerGet(SNAP_PREFIX+hist);
+    if(!snap){
+      try{ snap = JSON.parse(localStorage.getItem(SNAP_PREFIX+hist)||'null'); }catch(_){}
+    }
+
+    if(snap && typeof snap === 'object'){
+      if(typeof rows!=='undefined' && Array.isArray(snap.rows)) rows = snap.rows;
+      if(typeof classRates!=='undefined' && snap.classRates) classRates = snap.classRates;
+      if(typeof rumah!=='undefined' && Array.isArray(snap.rumah)) rumah = snap.rumah;
+
+      const ps = document.getElementById('periodStart');
+      const pe = document.getElementById('periodEnd');
+      if(ps) ps.value = snap.periodStart || hist || '';
+      if(pe && (snap.periodEnd||'')) pe.value = snap.periodEnd;
+
+      try{ if (typeof bootRatesUI==='function') bootRatesUI(); }catch(_){}
+      try{ if (typeof renderRumah==='function') renderRumah(); }catch(_){}
+      try{ if (typeof rerender==='function') rerender(); }catch(_){}
+    } else {
+      const ps = document.getElementById('periodStart');
+      const pe = document.getElementById('periodEnd');
+      if(ps){ ps.value = hist; try{ ps.dispatchEvent(new Event('change')); }catch(_){ } }
+      if(pe && !pe.value){
+        const d = new Date(hist); if(!isNaN(+d)){ d.setDate(d.getDate()+7); pe.value = d.toISOString().slice(0,10); }
+      }
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
