@@ -1,123 +1,2371 @@
-<!doctype html><html lang="id"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Form — Virtual Copy ?new=N</title>
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Kalkulator Upah — Group + Uang Beras (Mobile Friendly)</title>
 <style>
-  body{margin:0;font:16px system-ui,Segoe UI,Roboto,Arial;background:#0b1020;color:#e8ecf1}
-  .wrap{max-width:900px;margin:0 auto;padding:16px}
-  input,button{padding:8px 10px;border-radius:10px;border:1px solid #2a3770;background:#0f1838;color:#e8ecf1}
-  label{display:block;margin:8px 0}
-</style></head><body>
-<div class="wrap">
-  <h1>Form Input</h1>
-  <div id="hint" style="color:#a7b1c5;margin-bottom:8px"></div>
-  <label>Periode Mulai: <input id="periodStart" type="date"></label>
-  <label>Periode Selesai: <input id="periodEnd" type="date"></label>
-  <div style="margin:10px 0">
-    <button id="btnSave">Simpan</button>
-    <button id="btnAddRow">Tambah Baris</button>
+  :root { --bg:#0f172a; --card:#0b1220; --text:#e5e7eb; --sub:#94a3b8; --border:#334155; --hi:#0ea5b7; --accent:#10b981; --warn:#f59e0b; }
+  * { box-sizing: border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', Arial;
+         font-size:10pt; line-height:1.35;}
+  .container { max-width:1280px; margin:0 auto; padding:18px; }
+  h1 { margin:0 0 6px; font-size:21px; }
+  h3 { margin:0 0 6px; font-size:15px; }
+  .sub { color:var(--sub); margin-bottom:12px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:10px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .stack { display:flex; flex-direction:column; gap:8px; }
+  .btn { padding:7px 12px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; font-size:0.95em; }
+  .btn.primary { background:var(--hi); border:0; color:#05202c; font-weight:700; }
+  .btn.ghost { background:transparent; border:1px dashed var(--border); }
+  .btn.small { padding:5px 9px; font-size:0.85em; }
+  .btn.block { width:100%; text-align:center; }
+  .input, select, textarea { background:var(--card); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:12px; width:100%; font-size:0.95em; min-height:40px; }
+  select { appearance:none; }
+  .chip { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card); margin:4px 6px 0 0; font-size:0.95em; }
+  .chip button { background:transparent; border:0; color:var(--sub); cursor:pointer; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:6px; border-bottom:1px dashed var(--border); vertical-align:top; }
+  thead th { background:var(--card); position:sticky; top:0; z-index:2; }
+  .center { text-align:center; }
+  .right { text-align:right; }
+  .sum { font-weight:800; font-size:1.05em; }
+  .muted { color:var(--sub); font-size:10px; }
+  .cellstack { display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
+  .cellstack .cnt { font-size:10px; color:var(--sub); }
+  .badge { display:inline-block; padding:2px 6px; border-radius:999px; border:1px solid var(--border); color:var(--sub); margin-left:8px; font-weight:600; }
+  .group-head td { background:rgba(14,165,183,0.09); border-bottom:1px solid var(--border); font-weight:700; }
+  .group-sub td { background:rgba(14,165,183,0.05); border-top:1px dashed var(--border); font-weight:700; }
+  .scroll-x { overflow-x:auto; -webkit-overflow-scrolling: touch; }
+  /* Floating action bar for mobile */
+  .fabbar { position:fixed; left:0; right:0; bottom:0; z-index:9; padding:8px 8px; backdrop-filter:saturate(120%) blur(4px); }
+.container { padding-bottom: 140px; } 
+@supports (padding: max(0px)) {
+  .container { padding-bottom: max(140px, env(safe-area-inset-bottom)); }
+}
+@media print { .fabbar { visibility: hidden !important; } }
+  .fabbar .card { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px; }
+  .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#a7f3d0; font-weight:700; }
+  .pill .small { font-weight:500; color:#d1fae5; font-size:11px;}
+  /* Card Mode styles */
+  .worker-card { border:1px solid var(--border); border-radius:14px; padding:10px; background:rgba(255,255,255,0.02); margin-bottom:8px; }
+  .card-header { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+  .name { font-weight:800; font-size:1.05em; }
+  .daygrid { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; }
+  .daygrid .item { display:flex; flex-direction:column; gap:4px; }
+  .kv { display:flex; gap:10px; flex-wrap:wrap; }
+  .kv .row { gap:6px; }
+  .totals { display:flex; flex-wrap:wrap; gap:8px; }
+  .totals .chip { margin:0; }
+  .quickchips { margin-top:6px; }
+  /* Responsive overrides */
+  @media (max-width: 900px) {
+    body { font-size:12pt; }
+    .container { padding:12px; }
+    .btn { min-height:42px; }
+    .input, select, textarea { font-size:16px; min-height:44px; } /* prevent iOS zoom */
+    .daygrid { grid-template-columns: 1fr; }
+    .hide-sm { visibility: hidden !important; }
+  }
+  @media print {
+    .btn, .fabbar { visibility: hidden !important; }
+    .card { break-inside: avoid; }
+    thead th { position: static; }
+  }
+
+  .input.right{ text-align:right; }
+</style>
+
+<style>
+:root {
+  --rowA: rgba(148,163,184,0.06);
+  --rowB: rgba(148,163,184,0.12);
+  --cardA: rgba(255,255,255,0.03);
+  --cardB: rgba(255,255,255,0.06);
+}
+tbody tr.zebra-a td { background: var(--rowA); }
+tbody tr.zebra-b td { background: var(--rowB); }
+.worker-card.zebra-a { background: var(--cardA); }
+.worker-card.zebra-b { background: var(--cardB); }
+@media print {
+  tbody tr.zebra-a td, tbody tr.zebra-b td {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+}
+</style>
+
+
+
+<style>
+@media print {
+  /* Remove all visual boxes */
+  * { box-shadow: none !important; text-shadow: none !important; }
+  html, body { background: #ffffff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Tables */
+  table, thead, tbody, tfoot, tr, th, td { 
+    background: transparent !important; 
+    border: 0 !important; 
+    outline: 0 !important;
+  }
+  /* Remove zebra/card fills */
+  tbody tr.zebra-a td, tbody tr.zebra-b td,
+  .worker-card.zebra-a, .worker-card.zebra-b,
+  .worker-card, .card, .panel, .section, .container {
+    background: transparent !important; border: 0 !important; outline: 0 !important;
+  }
+  /* Group/Subtotal rows */
+  .group-head td, .group-sub td, .subtotal-row td, .subtotal-row, .group-header, .group-subtotal {
+    background: transparent !important; border: 0 !important; outline: 0 !important;
+  }
+  /* Header rows: no sticky, no background */
+  thead tr, .sticky { position: static !important; background: transparent !important; }
+  /* Horizontal rules */
+  hr { border: 0 !important; height: 0 !important; }
+  /* Inputs/buttons hidden in print unless they hold values to show */
+  button, .btn, .controls, .toolbar, .no-print { visibility: hidden !important; }
+  /* Ensure good spacing (optional, mild) */
+  td, th { padding: 2px 4px !important; }
+}
+</style>
+
+
+<style>
+@media print {
+  /* Flatten any chip/pill/badge-like elements so only text remains */
+  .chip, .badge, .pill, .tag, .lozenge,
+  [class*="chip"], [class*="badge"], [class*="pill"], [class*="tag"], [class*="lozenge"] {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+  /* Remove any inner boxes inside table cells/headers */
+  th *, td * {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+    border-radius: 0 !important;
+  }
+  /* Inputs/selects rendered as plain text */
+  input, select, textarea {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background: transparent !important;
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+  }
+}
+</style>
+
+
+<style>
+@media print {
+  /* Force ALL text (and pseudo-elements) to pure black */
+  *, *::before, *::after {
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    text-shadow: none !important;
+  }
+  a, a:link, a:visited, a:active {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+  /* Inputs/selects text black */
+  input, select, textarea {
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+  }
+  /* SVG text/icons */
+  svg *, svg text, svg tspan {
+    fill: #000 !important;
+    stroke: #000 !important;
+  }
+  /* Prefer light color scheme for print */
+  :root { color-scheme: light !important; }
+}
+</style>
+
+
+<style>
+.topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.topbar h1{ margin:0; }
+.search-box input{
+  padding:8px 10px; border:1px solid var(--line, #e5e7eb); border-radius:10px;
+  font-size:14px; min-width:220px;
+}
+@media (max-width:520px){
+  .search-box input{ min-width:160px; width:100%; }
+}
+@media print { .search-box{ visibility: hidden !important; } }
+</style>
+
+
+<style>
+/* Sticky top search bar */
+.topbar{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.9);
+  -webkit-backdrop-filter: saturate(120%) blur(4px);
+  backdrop-filter: saturate(120%) blur(4px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+@media (prefers-color-scheme: dark){
+  .topbar{ background: rgba(23,23,23,0.9); border-bottom-color: rgba(255,255,255,0.08); }
+}
+@media print { .topbar{ visibility: hidden !important; } }
+</style>
+
+
+<style>
+.collapsible > summary {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  cursor:pointer; list-style:none; user-select:none;
+  margin:0; padding:4px 2px;
+}
+.collapsible > summary::-webkit-details-marker { display:none; }
+.collapsible > summary .sum-title { font-size:16px; font-weight:700; }
+.collapsible > summary::before {
+  content:"▸"; margin-right:8px; font-size:14px; transform-origin:center;
+  transition: transform .2s ease;
+}
+.collapsible[open] > summary::before { content:"▾"; }
+.sum-actions { display:inline-flex; align-items:center; gap:6px; }
+@media print { .collapsible > summary::before { content:""; } }
+</style>
+
+
+<style>
+.main-actions{ margin: 8px 0 10px; }
+</style>
+
+
+<style>
+#pengaturan-actions-row{ margin-top: 8px; }
+</style>
+
+
+<style>
+/* Make only the search sticky, not the whole header */
+.topbar{ position: static !important; background: transparent; border-bottom: none; }
+.search-sticky{
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(255,255,255,0.9);
+  -webkit-backdrop-filter: saturate(120%) blur(4px);
+  backdrop-filter: saturate(120%) blur(4px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding: 6px 10px;
+}
+@media (prefers-color-scheme: dark){
+  .search-sticky{ background: rgba(23,23,23,0.9); border-bottom-color: rgba(255,255,255,0.08); }
+}
+@media print{ .search-sticky{ visibility: hidden !important; } }
+</style>
+
+
+<style>
+/* Sticky by default (desktop/tablet) */
+.search-sticky{
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(255,255,255,0.9);
+  -webkit-backdrop-filter: saturate(120%) blur(4px);
+  backdrop-filter: saturate(120%) blur(4px);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding: 6px 10px;
+}
+/* Floating on small screens */
+@media (max-width: 768px){
+  .search-sticky{
+    position: fixed; left: auto; right: 12px; top: 10px; z-index: 50;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 8px 10px;
+    width: min(86vw, 360px);
+    background: rgba(255,255,255,0.98);
+  }
+  .container{ padding-top: 72px; } /* Prevent overlap with top content */
+}
+@media (prefers-color-scheme: dark){
+  .search-sticky{ background: rgba(23,23,23,0.9); border-bottom-color: rgba(255,255,255,0.08); }
+  @media (max-width: 768px){
+    .search-sticky{ background: rgba(23,23,23,0.98); border-color: rgba(255,255,255,0.12); }
+  }
+}
+@media print{ .search-sticky{ visibility: hidden !important; } }
+</style>
+
+
+<style>
+:root { --day-zebra: rgba(0,0,0,0.03); }
+@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.04); } }
+#tbl thead th:nth-child(6), #tbl tbody td:nth-child(6),
+#tbl thead th:nth-child(8), #tbl tbody td:nth-child(8),
+#tbl thead th:nth-child(10), #tbl tbody td:nth-child(10),
+#tbl thead th:nth-child(12), #tbl tbody td:nth-child(12) { background: var(--day-zebra); }
+@media print{
+  #tbl thead th, #tbl tbody td { background: transparent !important; }
+}
+</style>
+
+
+<style>
+/* Stronger zebra + apply to card mode */
+/* Slightly stronger contrast */
+:root { --day-zebra: rgba(0,0,0,0.06); }
+@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.10); } }
+/* Cards: zebra by day item (including the day title label) */
+.daygrid .item:nth-child(odd){
+  background: var(--day-zebra);
+  border-radius: 10px;
+  padding: 8px;
+}
+@media print{
+  .daygrid .item{ background: transparent !important; }
+}
+</style>
+
+
+<style>
+/* Enforce zebra for CARD mode (including the day title block) */
+:root { --day-zebra: rgba(0,0,0,0.10); }
+@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.16); } }
+/* Use :nth-of-type to avoid counting text nodes; make it stronger with !important */
+.daygrid > .item:nth-of-type(odd){
+  background-color: var(--day-zebra) !important;
+}
+@media print{ .daygrid > .item{ background: transparent !important; } }
+</style>
+
+
+<style>
+/* Force zebra in CARD mode regardless of inner wrapper structure */
+:root { --day-zebra: rgba(0,0,0,0.10); }
+@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.16); } }
+#cardsWrap .daygrid > *:nth-of-type(odd){
+  background-color: var(--day-zebra) !important;
+}
+#cardsWrap .daygrid > *:nth-of-type(odd) .daytitle{
+  background-color: transparent !important;
+}
+@media print{
+  #cardsWrap .daygrid > *{ background: transparent !important; }
+}
+</style>
+
+
+<style>
+.fabbar .search-box{ margin-top: 6px; }
+.fabbar .search-box input{ min-width: 220px; }
+@media (max-width: 560px){
+  .fabbar .search-box input{ width: 100%; }
+}
+</style>
+
+
+<style>
+@media (max-width: 768px){
+  #tableWrap{ overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #tableWrap table{ min-width: 900px; }
+}
+</style>
+
+
+<style>
+/* Force the app title to white on-screen */
+.topbar h1, .header h1, h1.app-title, h1#appTitle, h1 {
+  color: #ffffff !important;
+}
+/* Keep print output black for clean PDF */
+@media print{
+  .topbar h1, .header h1, h1.app-title, h1#appTitle, h1 {
+    color: #000000 !important;
+  }
+}
+</style>
+
+
+<style>
+/* ===== Layout polish ===== */
+#secOptions { margin-top: 8px; }
+#secOptions .row { gap: 10px; }
+#secOptions .row > div { flex: 1 1 200px; min-width: 180px; }
+#secOptions input.input, #secOptions select.input { width: 100% !important; }
+/* Grouped cards spacing */
+#secOptions > .card { margin-top: 10px; }
+#pengaturan-actions-row { gap: 8px; flex-wrap: wrap; }
+#pengaturan-actions-row .btn { min-width: max(140px, 18ch); }
+/* Headings and chips spacing */
+.card h3 { margin: 0 0 8px !important; }
+.chip { line-height: 1.2; }
+/* Table wrapper refine */
+#tableWrap > div { border-radius: 12px; overflow: hidden; }
+/* Make main action row nicely spaced */
+.main-actions .btn { min-height: 40px; }
+</style>
+
+
+<style>
+.pengaturan-card { border-radius: 12px; }
+.pengaturan-card .subcard { background: transparent; box-shadow: none; border: 0; padding: 0; margin-top: 8px; }
+.pengaturan-card .subcard + .subcard { margin-top: 14px; border-top: 1px dashed rgba(0,0,0,.15); padding-top: 10px; }
+@media (prefers-color-scheme: dark){
+  .pengaturan-card .subcard + .subcard { border-top-color: rgba(255,255,255,.2); }
+}
+</style>
+
+
+<style>
+/* ==== Pengaturan layout tidy (scoped) ==== */
+.pengaturan-card{
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 1px 6px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  .pengaturan-card{ border-color: rgba(255,255,255,.12); box-shadow: 0 1px 6px rgba(0,0,0,.35); }
+}
+.pengaturan-card h3{
+  margin: 0 0 10px !important;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.pengaturan-card .subcard{
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin-top: 8px;
+}
+.pengaturan-card .subcard + .subcard{
+  margin-top: 14px;
+  border-top: 1px dashed rgba(0,0,0,.14);
+  padding-top: 10px;
+}
+@media (prefers-color-scheme: dark){
+  .pengaturan-card .subcard + .subcard{ border-top-color: rgba(255,255,255,.24); }
+}
+
+/* Form rows inside Pengaturan: aligned labels & inputs */
+#secOptions .row{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#secOptions .row label.muted{ flex: 0 0 180px; max-width: 180px; }
+#secOptions .row input.input, #secOptions .row select.input, #secOptions .row .input{
+  flex: 1 1 260px; min-width: 220px;
+}
+/* Chips list (Master Rumah) */
+#secOptions .chips{ display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
+#secOptions .chip{ border-radius: 999px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 6px; }
+
+/* Actions row under Pengaturan */
+#pengaturan-actions-row{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+#pengaturan-actions-row .btn{ min-width: max(132px, 16ch); line-height: 1.2; }
+
+/* Keep mobile comfortable */
+@media (max-width: 680px){
+  #secOptions .row label.muted{ flex-basis: 100%; max-width: none; margin-bottom: 2px; }
+  #secOptions .row input.input, #secOptions .row select.input, #secOptions .row .input{ flex-basis: 100%; min-width: 0; }
+}
+
+/* Table wrapper corners and spacing */
+#tableWrap > div{ border-radius: 12px; overflow: hidden; }
+
+/* Do not affect print */
+@media print{
+  .pengaturan-card{ border: 0; box-shadow: none; padding: 0; }
+}
+</style>
+
+
+<style>
+/* ===== Global 8pt typography & weight rules ===== */
+html, body { font-size: 8pt !important; }
+body, body * { font-size: 8pt !important; line-height: 1.35; }
+/* Normal-weight everywhere by default */
+h1, h2, h3, h4, h5, h6,
+th, .th, strong, b, label, summary,
+.btn, .chip, .muted { font-weight: normal !important; }
+/* Keep only the app title bold */
+.topbar h1, .header h1, h1.app-title, h1#appTitle { font-weight: 700 !important; }
+/* Preserve existing white title on screen (already set elsewhere), but black on print */
+@media print{
+  .topbar h1, .header h1, h1.app-title, h1#appTitle { color: #000 !important; }
+  body, body * { color: #000 !important; }
+}
+</style>
+
+
+<style>
+/* Icon-only delete buttons */
+.btn.icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:6px; min-width:auto; width:30px; height:30px; border-radius:10px;
+}
+.btn.icon.small{ width:26px; height:26px; padding:4px; border-radius:8px; }
+.btn.icon svg{ width:14px; height:14px; display:block; }
+@media (max-width: 900px){
+  .btn.icon{ width:34px; height:34px; }
+  .btn.icon.small{ width:30px; height:30px; }
+  .btn.icon svg{ width:16px; height:16px; }
+}
+</style>
+
+
+<style>
+#mainActionsFixed{ position:relative; z-index:5; margin:10px 0 14px; display:flex; flex-wrap:wrap; gap:8px; }
+#mainActionsFixed .btn{ min-height:32px; padding:6px 10px; }
+@media print{ #mainActionsFixed{ visibility: hidden !important; } }
+</style>
+
+
+<style>
+/* ===== Card Mode: compact smartphone layout ===== */
+@media (max-width: 430px) {
+  /* Card shell */
+  .cards, #cardsWrap, .cards-container{ padding: 6px !important; }
+  .worker-card, .card{
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+  /* Card header & titles */
+  .worker-card h3, .card h3{
+    font-size: 13px !important;
+    margin: 0 0 6px !important;
+    line-height: 1.2 !important;
+  }
+  /* Grid/rows inside cards */
+  .worker-card .row, .card .row{
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+  /* Labels & inline fields */
+  .worker-card label, .card label{
+    font-size: 12px !important;
+  }
+  .worker-card .field, .card .field{
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px;
+  }
+  /* Inputs/selects/buttons inside cards */
+  .worker-card input, .worker-card select,
+  .card input, .card select{
+    height: 28px !important;
+    padding: 2px 6px !important;
+    font-size: 12px !important;
+  }
+  .worker-card .bonus-line input, .card .bonus-line input{
+    height: 28px !important;
+    padding: 2px 6px !important;
+    max-width: 120px !important;
+  }
+  .worker-card .btn, .card .btn{
+    min-height: 28px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+  }
+  .worker-card .btn.icon, .card .btn.icon{
+    width: 28px !important; height: 28px !important;
+  }
+  .worker-card .btn.icon svg, .card .btn.icon svg{
+    width: 16px !important; height: 16px !important;
+  }
+  /* Tighten vertical rhythm between sections */
+  .worker-card + .worker-card, .card + .card{ margin-top: 8px !important; }
+  /* Totals row text smaller but readable */
+  .worker-card .total, .card .total{
+    font-size: 12px !important;
+  }
+}
+</style>
+
+<style>
+
+/* === Injected by ChatGPT: Table vertical scroll with sticky header/footer === */
+#tableWrap{
+  overflow-y: auto;              /* enable vertical scroll */
+  max-height: min(72vh, 720px);  /* contain table height */
+}
+
+/* sticky header */
+#tbl thead th{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card, #fff);
+}
+
+/* sticky footer total */
+#tbl tfoot td{
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--card, #fff);
+  box-shadow: 0 -1px 0 var(--border, rgba(0,0,0,.08));
+}
+
+/* mobile: give more room accounting for search/FAB bars */
+@media (max-width: 768px){
+  #tableWrap{
+    max-height: calc(100vh - 220px);
+  }
+}
+
+</style>
+<style>
+
+/* === Injected by ChatGPT (tidy): sticky header/footer & table polish === */
+:root{
+  --c-bg: var(--card, #ffffff);
+  --c-border: var(--border, rgba(0,0,0,.08));
+  --c-text: var(--text, #111827);
+  --c-muted: var(--muted, #6b7280);
+}
+
+#tableWrap{
+  position: relative;
+  overflow: auto; /* both axes */
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+}
+
+/* Ensure inner min-width container keeps the table wide */
+#tableWrap > div{
+  border: none !important;        /* avoid double border */
+  border-radius: 12px;
+}
+
+/* Base table polish */
+#tbl{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  color: var(--c-text);
+  font-size: 12px;
+}
+#tbl th, #tbl td{
+  padding: 8px 10px;
+  line-height: 1.2;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+  box-sizing: border-box;
+}
+#tbl thead th{
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+/* Zebra rows for readability */
+#tbl tbody tr:nth-child(odd) td{ background: color-mix(in oklab, var(--c-bg) 92%, black); }
+#tbl tbody tr:hover td{ background: color-mix(in oklab, var(--c-bg) 86%, black); }
+
+/* Sticky overlay containers */
+#tableWrap .sticky-header,
+#tableWrap .sticky-footer{
+  position: sticky;
+  left: 0; right: 0;
+  z-index: 40;
+  background: var(--c-bg);
+}
+#tableWrap .sticky-header{
+  top: 0;
+  box-shadow: 0 1px 0 var(--c-border), 0 6px 10px rgba(0,0,0,.04);
+}
+#tableWrap .sticky-footer{
+  bottom: 0;
+  box-shadow: 0 -1px 0 var(--c-border), 0 -6px 10px rgba(0,0,0,.04);
+}
+#tableWrap .sticky-header table,
+#tableWrap .sticky-footer table{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+#tableWrap .sticky-header th,
+#tableWrap .sticky-footer td{
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border);
+}
+#tableWrap .sticky-footer td{
+  border-top: 1px solid var(--c-border);
+}
+
+/* Hide original thead/tfoot to prevent double lines */
+#tbl thead.is-hidden th,
+#tbl tfoot.is-hidden td{ visibility: hidden !important; }
+
+/* Prevent overlap of first/last rows by adding padding via CSS vars */
+#tableWrap.padding-for-sticky{
+  --stickyHeadH: 0px;
+  --stickyFootH: 0px;
+  padding-top: var(--stickyHeadH);
+  padding-bottom: var(--stickyFootH);
+}
+
+/* Compact on mobile */
+@media (max-width: 768px){
+  #tbl{ font-size: 11px; }
+  #tbl th, #tbl td{ padding: 7px 8px; }
+  #tableWrap{ max-height: calc(100vh - 200px); }
+}
+
+</style>
+<style>
+
+/* === Injected by ChatGPT: flush-to-container (no top/bottom gap) === */
+#tableWrap.padding-for-sticky{
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+#tbl tbody tr:first-child td{ border-top: 1px solid var(--c-border); }
+#tbl tbody::before{
+  content: "";
+  display: table-row;
+  height: var(--stickyHeadH, 0px);
+}
+#tbl tbody::after{
+  content: "";
+  display: table-row;
+  height: var(--stickyFootH, 0px);
+}
+
+</style>
+
+
+<!-- === Hide Kelas & Group: CSS v2 === -->
+<style>
+/* Fallback by column index */
+body.hide-cg #tbl thead th:nth-child(3),
+body.hide-cg #tbl tbody td:nth-child(3),
+body.hide-cg #tbl thead th:nth-child(4),
+body.hide-cg #tbl tbody td:nth-child(4) {
+  visibility: hidden !important;
+  width: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Class-based (preferred): applied by JS after detecting the real indices */
+body.hide-cg #tbl th.col-kelas,
+body.hide-cg #tbl td.col-kelas,
+body.hide-cg #tbl th.col-group,
+body.hide-cg #tbl td.col-group {
+  visibility: hidden !important;
+  width: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Hide in Card view (already tagged via JS/observer) */
+body.hide-cg #cardsWrap .kv.hide-cg { visibility: hidden !important; }
+
+.settings-row { display:flex; align-items:center; gap:.5rem; margin:.5rem 0; }
+.settings-row input[type="checkbox"] { transform: translateY(1px); }
+</style>
+
+<style>
+/* Aggressive: any element tagged as hide-cg-el disappears when hide mode is on */
+body.hide-cg .hide-cg-el { visibility: hidden !important; visibility: hidden !important; width:0 !important; padding:0 !important; margin:0 !important; border:0 !important; }
+</style>
+
+
+<style>
+/* === Safe hide: keep layout aligned by hiding content only === */
+body.hide-cg #tbl thead th:nth-child(3),
+body.hide-cg #tbl tbody td:nth-child(3),
+body.hide-cg #tbl tfoot td:nth-child(3),
+body.hide-cg #tbl thead th:nth-child(4),
+body.hide-cg #tbl tbody td:nth-child(4),
+body.hide-cg #tbl tfoot td:nth-child(4),
+body.hide-cg #tbl th.col-kelas,
+body.hide-cg #tbl td.col-kelas,
+body.hide-cg #tbl th.col-group,
+body.hide-cg #tbl td.col-group {
+  visibility: hidden !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Card fields already handled via .kv.hide-cg */
+</style>
+
+
+<style>
+/* === Injected: Logo finger heart above title === */
+.topbar{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.logo-mark{
+  font-size: 480px;
+  line-height: 1;
+  color: currentColor; /* white on-screen (already forced), black on print */
+}
+@media print{
+  .logo-mark{ color: #000 !important; }
+}
+</style>
+
+
+<style>
+/* === Injected: Make logo undeniably large & responsive === */
+.topbar{ overflow: visible; }
+div.logo-mark.logo-mark{ font-size: min(60vh,80vw) !important; line-height: 1 !important; }
+@media print{
+  div.logo-mark.logo-mark{ font-size: 64pt !important; color:#000 !important; }
+}
+</style>
+
+
+<style>
+/* === Injected: Set logo to ~30% of viewport === */
+.topbar .logo-mark{ font-size: min(30vh,30vw) !important; line-height: 1 !important; }
+@media print{
+  .topbar .logo-mark{ font-size: 36pt !important; }
+}
+</style>
+
+
+<style>
+/* === Injected: Set logo to ~15% of viewport === */
+.topbar .logo-mark{ font-size: min(15vh,15vw) !important; line-height: 1 !important; }
+@media print{
+  .topbar .logo-mark{ font-size: 28pt !important; }
+}
+</style>
+
+
+<style>
+/* === Injected: Set logo to ~7.5% of viewport === */
+.topbar .logo-mark{ font-size: min(7.5vh,7.5vw) !important; line-height: 1 !important; }
+@media print{
+  .topbar .logo-mark{ font-size: 18pt !important; }
+}
+</style>
+
+
+<style>
+/* === Injected: Tighten table header-body gap === */
+table { border-collapse: collapse !important; border-spacing: 0 !important; }
+thead { margin-bottom: 0 !important; }
+tbody { margin-top: 0 !important; }
+thead th { padding-bottom: 2px !important; }
+tbody td { padding-top: 2px !important; }
+</style>
+
+<style>
+  /* Lebarkan kolom BONUS 3× */
+  #tbl th:nth-child(16),
+  #tbl td:nth-child(16){
+    width: 15ch;              /* pakai ch supaya cukup untuk angka panjang */
+  }
+  /* Pastikan input-nya mengikuti lebar sel */
+  #tbl td:nth-child(16) .input,
+  #tbl td:nth-child(16) input{
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Opsional: beri ruang ekstra di layar kecil */
+  @media (max-width: 768px){
+    #tbl th:nth-child(16),
+    #tbl td:nth-child(16){ width: 15ch; }
+  }
+
+/* ---- Force logo to black & white (keep size the same) ---- */
+.logo-mark, .logo, .brand-mark {
+  -webkit-filter: grayscale(100%) contrast(120%) !important;
+  filter: grayscale(100%) contrast(120%) !important;
+}
+.logo-mark svg, .logo svg {
+  filter: grayscale(100%) contrast(120%) !important;
+}
+
+.logo-mark, .logo, .brand-mark { color: #000 !important; }
+</style>
+
+<style>
+  #mainActionsFixed{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  #mainActionsFixed #periodRow{ order:0; }
+  @media (max-width:640px){
+    #mainActionsFixed #periodRow{ width:100%; order:-1; }
+  }
+</style>
+
+<style>
+  .date-wrap{ display:inline-flex; align-items:center; gap:4px; border-radius:10px; }
+  .date-wrap .cal-btn{
+    border:1px solid var(--border,#d0d5dd);
+    background: var(--bg,#fff);
+    padding:6px; border-radius:8px; cursor:pointer; line-height:0;
+  }
+  .date-wrap .cal-btn:hover{ background:#f9fafb; }
+  /* Popup calendar */
+  .mini-cal{
+    position:absolute; z-index:9999; background:#fff; border:1px solid #d0d5dd; border-radius:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.08); width:280px; overflow:hidden;
+  }
+  .mini-cal header{
+    display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #eef2f7;
+    font-weight:600;
+  }
+  .mini-cal header .nav{ display:flex; gap:6px; }
+  .mini-cal header .nav button{ padding:4px 8px; border:1px solid #d0d5dd; background:#fff; border-radius:8px; cursor:pointer; }
+  .mini-cal .grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; padding:10px; }
+  .mini-cal .dow{ text-align:center; font-size:12px; color:#667085; }
+  .mini-cal .day{
+    text-align:center; padding:8px 0; border-radius:8px; cursor:pointer; border:1px solid transparent;
+  }
+  .mini-cal .day:hover{ background:#f2f4f7; }
+  .mini-cal .day.today{ border-color:#d0d5dd; }
+  .mini-cal .day.out{ color:#98a2b3; }
+  .mini-cal .footer{ display:flex; justify-content:flex-end; gap:8px; padding:10px; border-top:1px solid #eef2f7; }
+  .mini-cal .footer button{ padding:6px 10px; border:1px solid #d0d5dd; background:#fff; border-radius:8px; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+  <div class="logo-mark" style="font-size:min(7.5vh,7.5vw) !important; line-height:1; line-height:1; line-height:1; line-height:1; display:block; margin-top:8px;" title="finger heart" aria-label="finger heart">🫰</div>
+<h1 class="app-title">Kalkulator Upah 7 Hari</h1></div>
+
+<div class="main-actions" id="mainActionsFixed">
+    <div class="row" id="periodRow" style="gap:8px; align-items:center; flex-wrap:wrap; margin-right:auto;">
+    <label class="muted">Periode</label>
+    <span class="date-wrap">
+  <input type="date" id="periodStart" class="input" style="width:160px;">
+  <button type="button" class="cal-btn" data-cal-for="periodStart" aria-label="Buka kalender">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="16" rx="2" ry="2" stroke="currentColor" />
+      <path d="M16 3v4M8 3v4M3 9h18" stroke="currentColor" />
+    </svg>
+  </button>
+</span>
+    <span class="muted">s/d</span>
+    <span class="date-wrap">
+  <input type="date" id="periodEnd" class="input" style="width:160px;">
+  <button type="button" class="cal-btn" data-cal-for="periodEnd" aria-label="Buka kalender">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="16" rx="2" ry="2" stroke="currentColor" />
+      <path d="M16 3v4M8 3v4M3 9h18" stroke="currentColor" />
+    </svg>
+  </button>
+</span>
   </div>
-  <pre id="out"></pre>
+<button class="btn" onclick="try{saveAll&&saveAll()}catch(_){ if (typeof save==='function') save('rows', window.rows); else alert('Fungsi simpan tidak tersedia'); }">Simpan</button>
+  <button class="btn" onclick="window.print()">Cetak</button>
+  <button class="btn" onclick="try{downloadCSV&&downloadCSV()}catch(_){alert('downloadCSV tidak ditemukan')}">Unduh CSV</button>
+  <button class="btn" onclick="try{downloadJSON&&downloadJSON()}catch(_){alert('downloadJSON tidak ditemukan')}">Unduh JSON</button>
+  <button class="btn small" onclick="restoreDefaultRows()">Kosongkan</button>
+  
+  <button class="btn primary" onclick="addWorker()">+ Pekerja</button>
 </div>
 
+
+<details class="card collapsible" id="secOptions">
+
+<!-- === Toggle: Hide Kelas & Group === -->
+<div class="settings-row">
+  <input type="checkbox" id="toggleHideCG">
+  <label for="toggleHideCG">Sembunyikan kolom <b>Kelas</b> & <b>Group</b> (Tabel & Card)</label>
+</div>
+
+      <summary><span class="sum-title">Pengaturan</span></summary>
+<div class="card pengaturan-card" style="margin-top:8px; padding:12px;"><div class="row">
+        <div style="width:220px;">
+          <label class="muted">Senior</label>
+          <input id="rateSenior" type="number" class="input" oninput="classRates['Senior']=Number(this.value||0); rerender();" />
+        </div>
+        <div style="width:220px;">
+          <label class="muted">Tukang</label>
+          <input id="rateTukang" type="number" class="input" oninput="classRates['Tukang']=Number(this.value||0); rerender();" />
+        </div>
+        <div style="width:220px;">
+          <label class="muted">Kenek</label>
+          <input id="rateKenek" type="number" class="input" oninput="classRates['Kenek']=Number(this.value||0); rerender();" />
+        </div>
+      </div>
+
+
+      <div class="subcard">
+<h3 style="margin:0 0 6px;">Tarif per Kelas (Rp/hari)</h3>
+
+      <div class="row" style="justify-content:flex-end; gap:8px;"><button class="btn small" onclick="restoreDefaultRates()">Kembalikan Tarif Default</button>
+      </div>
+<div class="row">
+  <label class="muted">Ambang Uang Beras</label>
+  <input id="thresholdInput" type="number" step="1" min="0" style="width:160px;" />
+  <label class="muted">Nilai Uang Beras</label>
+  <input id="berasInput" type="number" step="1" min="0" style="width:140px;" />
+  <button class="btn small" onclick="updateBerasRule()">Terapkan</button>
+</div>
+
+
+      <div class="subcard">
+<h3 style="margin:0 0 6px;">Master Rumah</h3>
+
+      <div class="row">
+        <input id="inpRumah" class="input" style="width:260px;" placeholder="mis. A11 atau C1" />
+        <button class="btn small" onclick="addRumah()">Tambah</button>
+        <button class="btn small" onclick="clearRumah()">Kosongkan Daftar</button>
+        <button class="btn small" onclick="restoreDefaultRumah()">Pulihkan Default</button>
+      
+      </div>
+
+
+    
+      <div id="rumahList" style="margin-top:6px;"></div>
+      <div class="muted" style="margin-top:6px;"> Di mobile, geser horisontal bila tabel melebar.</div></div>
+
+<div class="row" id="pengaturan-actions-row" style="gap:8px; align-items:center; flex-wrap:wrap;">
+<button class="btn" onclick="clearAllDays()">Kosongkan Semua Hari</button>
+<button class="btn small" onclick="setView('table')">Mode Tabel</button>
+<button class="btn small" onclick="setView('cards')">Mode Card</button>
+<button class="btn small" onclick="addWorker()">Tambah Baris</button>
+<button class="btn" onclick="resetAll()">Reset Semua</button>
+
+</div>
+</details><!-- TABLE MODE -->
+    <div id="tableWrap" class="card scroll-x">
+      <div style="min-width:1000px; border:1px solid var(--border); border-radius:12px;">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th class="center">No</th>
+              <th>Nama</th>
+              <th>Kelas</th>
+              <th>Group</th>
+              <th class="right hide-sm">Tarif/Nama</th>
+              <th class="center">Minggu</th>
+              <th class="center">Senin</th>
+              <th class="center">Selasa</th>
+              <th class="center">Rabu</th>
+              <th class="center">Kamis</th>
+              <th class="center">Jumat</th>
+              <th class="center">Sabtu</th>
+              <th class="right">Total Hari</th>
+              <th class="right">Upah Pokok</th>
+              <th class="right">Uang Beras</th>
+              <th class="right">Bonus</th>
+              <th class="right">Total Bayar</th>
+              <th class="hide-sm">Keterangan</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="12" class="right sum">TOTAL</td>
+              <td id="sumHari" class="right sum">0</td>
+              <td id="sumUpahPokok" class="right sum">Rp 0</td>
+              <td id="sumBeras" class="right sum">Rp 0</td>
+              <td id="sumBonus" class="right sum">Rp 0</td>
+              <td id="sumTotalBayar" class="right sum">Rp 0</td>
+              <td class="hide-sm"></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- CARD MODE -->
+    <div id="cardsWrap" class="card" style="display:none;">
+      <div id="cardsBody"></div>
+    </div>
+
+    <details class="card collapsible" id="rekap3">
+      <summary><span class="sum-title">Rekap Total Tarif per Rumah</span></summary>
+      <div class="muted"></div>
+      <div id="rekap3Body"></div>
+    </details>
+    <details class="card collapsible" id="rekap3day">
+      <summary><span class="sum-title">Rekap per Rumah per Hari</span></summary>
+      <div class="muted"></div>
+      <div id="rekap3DayBody"></div>
+    </details>
+  </div>
+
+  <!-- Sticky action bar (mobile-friendly running totals) -->
+  <div class="fabbar">
+    <div class="card">
+      <div class="row">
+        <span class="pill">Total Bayar: <span id="pillTotal" class="small">Rp 0</span></span>
+      </div>
+      <div class="row">
+        
+        <button class="btn ghost" onclick="setView(toggleView())">Ganti Mode</button>
+  <div class="search-box no-print">
+        <input id="searchName" type="search" placeholder="Cari nama pekerja…" autocomplete="off" />
+      </div>
+
+      </div>
+    </div>
+  </div>
+
 <script>
-let rows = JSON.parse(localStorage.getItem('upah20_rows')||'[]');
-let classRates = JSON.parse(localStorage.getItem('upah20_classRates')||'{"Senior":150000,"Tukang":120000,"Kenek":100000}');
-let rumah = JSON.parse(localStorage.getItem('upah20_rumah')||'[]');
+  // ===== Defaults =====
+  const defaultClassRates = {"Senior":145000,"Tukang":130000,"Kenek":120000};
+  // === Updated: include half-day variants like "1/2 A1" .. "1/2 B8" while keeping old data ===
+const baseRumah = [...Array(10)].map((_,i)=>'A'+(i+1)).concat([...Array(8)].map((_,i)=>'B'+(i+1)));
+const defaultRumahList = baseRumah
+  .concat(baseRumah.map(x=>'1/2 '+x))   // add 1/2 A1..A10 & 1/2 B1..B8
+  .concat('Lain','1/2 Lain');           // keep existing extras at the end
+  const groupList = ['Alex','Toro','Muchsin'];
+  const dayKeys = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'];
+  // Display order: Sunday first (Minggu, Senin ... Sabtu) mapped to internal indices (Mon..Sun)
+  const displayDayOrder = [6,0,1,2,3,4,5];
+  const displayDayKeys = displayDayOrder.map(i => dayKeys[i]);
 
-function bootRatesUI(){ /* placeholder */ }
-function renderRumah(){ /* placeholder */ }
-function rerender(){ document.getElementById('out').textContent = JSON.stringify({rows,classRates,rumah}, null, 2); }
+  // Rule Uang Beras
+  let allowanceThreshold = Number(localStorage.getItem('upah20_beras_threshold')||'3.9');
+  let allowanceAmount = Number(localStorage.getItem('upah20_beras_amount')||'20000');
 
-window.saveAll = function(){
-  localStorage.setItem('upah20_rows', JSON.stringify(rows));
-  localStorage.setItem('upah20_classRates', JSON.stringify(classRates));
-  localStorage.setItem('upah20_rumah', JSON.stringify(rumah));
-  localStorage.setItem('upah20_periodStart', document.getElementById('periodStart').value||'');
-  localStorage.setItem('upah20_periodEnd', document.getElementById('periodEnd').value||'');
-  document.getElementById('out').textContent='Saved at '+new Date().toISOString();
-};
+  // Default daftar pekerja
+  const defaultRows = [
+    {nama:'Alex', kelas:'Senior', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Birin', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Oday', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Mulyana', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Dede', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Mamat', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Yusuf', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Hasan', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Deden', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Kus', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Sule', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Nana', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Uto', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Dayat', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Karno', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Haris', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Wawan', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Aki', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Anas', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Nuh', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Yasir', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Mulyadi', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Maman', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Ori', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Mumu', kelas:'Tukang', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Feri', kelas:'Kenek', group:'Alex', rumah:['','','','','','',''], ket:''},
+    {nama:'Muchsin', kelas:'Senior', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Asnim', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Aji', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Gani', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Udin', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Dadang', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Awang', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Samsudin', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Majid', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Adit', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Sarif', kelas:'Kenek', group:'Muchsin', rumah:['','','','','','',''], ket:''},
+    {nama:'Pak Yoto', kelas:'Senior', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Wiryo', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Saleh', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Sugeng', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Fatah', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Supri', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Tarno G', kelas:'Kenek', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Toro', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Tarno T', kelas:'Kenek', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Sutio', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Yadi', kelas:'Senior', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Gita', kelas:'Kenek', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Bas', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Anan', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Ahmad', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Boy', kelas:'Tukang', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Herman', kelas:'Kenek', group:'Toro', rumah:['','','','','','',''], ket:''},
+    {nama:'Akbar', kelas:'Kenek', group:'Toro', rumah:['','','','','','',''], ket:''}
+  ];
 
-document.getElementById('btnAddRow').addEventListener('click', ()=>{ rows.push({pekerja:'(baru)', d1:0}); rerender(); });
-document.getElementById('btnSave').addEventListener('click', ()=>{ saveAll(); });
+  // ===== Storage helpers =====
+  function rp(n){ n=Number(n||0); return 'Rp '+n.toLocaleString('id-ID'); }
+  function fmtHari(h){ return (Math.round(h*10)/10).toString().replace(/\\.0$/,''); }
+  function load(key){ try{return JSON.parse(localStorage.getItem('upah20_'+key));}catch(e){return null;} }
+  function save(key,val){ localStorage.setItem('upah20_'+key, JSON.stringify(val)); }
+  function saveAll(){ save('rows',rows); save('classRates',classRates); save('rumah',rumah);
+    localStorage.setItem('upah20_beras_threshold', String(allowanceThreshold));
+    localStorage.setItem('upah20_beras_amount', String(allowanceAmount));
+    alert('Tersimpan.'); }
 
-async function tryServerGet(key){ try{ const r=await fetch('/.netlify/functions/state?key='+encodeURIComponent(key)); if(!r.ok) return null; return await r.json(); }catch(_){ return null; } }
-async function tryServerSet(key, data){ try{ await fetch('/.netlify/functions/state',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key,data})}); }catch(_){ } }
-
-// Virtual copy: jika ada ?new=N, reset state kerja (tanpa hapus tarif & rumah)
-(function(){
-  const p=new URLSearchParams(location.search);
-  const newN = p.get('new');
-  const hint = document.getElementById('hint');
-  if(newN){
-    rows = [];
-    localStorage.removeItem('upah20_rows');
-    localStorage.removeItem('upah20_periodStart');
-    localStorage.removeItem('upah20_periodEnd');
-    const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
-    if(ps){ ps.value=''; } if(pe){ pe.value=''; }
-    if(hint) hint.textContent = 'Mode NEW #'+newN+' — form baru (virtual copy). Simpan untuk membuat snapshot periode.';
-    try{ if (typeof rerender==='function') rerender(); }catch(_){}
-  } else {
-    if(hint) hint.textContent = 'Mode EDIT — memuat state aktif.';
+  function resetAll(){
+    if(!confirm('Reset semua data ke default?')) return;
+    localStorage.removeItem('upah20_rows'); localStorage.removeItem('upah20_classRates'); localStorage.removeItem('upah20_rumah');
+    localStorage.removeItem('upah20_beras_threshold'); localStorage.removeItem('upah20_beras_amount');
+    rows=structuredClone(defaultRows); classRates=structuredClone(defaultClassRates); rumah=[...defaultRumahList];
+    allowanceThreshold = 3.9; allowanceAmount = 20000;
+    bootRatesUI(); renderRumah(); rerender(); bootBerasUI();
   }
-})();
+  function restoreDefaultRows(){ rows=structuredClone(defaultRows); rerender(); save('rows',rows); }
 
-// Snapshot V2 saat Simpan
-(function(){
-  const PREFIX='upah20_snap__';
-  const orig=window.saveAll;
-  if(typeof orig==='function'){
-    window.saveAll = async function(){
-      const res=orig.apply(this, arguments);
-      try{
-        const ps=document.getElementById('periodStart')?.value||'';
-        const pe=document.getElementById('periodEnd')?.value||'';
-        if(ps){
-          const keyV2 = PREFIX + ps + '__' + (pe||'na');
-          const snap = { rows, classRates, rumah, periodStart:ps, periodEnd:pe||'', savedAt:new Date().toISOString(), version:2 };
-          try{ localStorage.setItem(keyV2, JSON.stringify(snap)); }catch(_){}
-          await tryServerSet(keyV2, snap);
-          const oldKey = PREFIX + ps;
-          try{ localStorage.setItem(oldKey, JSON.stringify(snap)); }catch(_){}
-          await tryServerSet(oldKey, snap);
+  let classRates = load('classRates') || structuredClone(defaultClassRates);
+  let rumah = load('rumah') || [...defaultRumahList];
+  let rows = load('rows') || structuredClone(defaultRows);
+  if(!Array.isArray(rows) || rows.length===0){ rows = structuredClone(defaultRows); }
+  rows.forEach(r=>{ if(r.bonus===undefined) r.bonus=''; });
+  let searchName = (localStorage.getItem('upah20_search')||'');
+  let viewMode = localStorage.getItem('upah20_viewMode') || (window.innerWidth<=900 ? 'cards' : 'table');
+
+  // ===== UI logic =====
+  function restoreDefaultRates(){ classRates = structuredClone(defaultClassRates); bootRatesUI(); rerender(); }
+  function restoreDefaultRumah(){ rumah = [...defaultRumahList]; renderRumah(); rerender(); save('rumah',rumah); }
+
+  function bootRatesUI(){
+    document.getElementById('rateSenior').value = classRates['Senior']||0;
+    document.getElementById('rateTukang').value = classRates['Tukang']||0;
+    document.getElementById('rateKenek').value = classRates['Kenek']||0;
+  }
+
+  function bootBerasUI(){
+    document.getElementById('thresholdInput').value = allowanceThreshold || 0;
+    document.getElementById('berasInput').value = allowanceAmount || 0;
+  }
+  function updateBerasRule(){
+    const t = Number(document.getElementById('thresholdInput').value||0);
+    const a = Number(document.getElementById('berasInput').value||0);
+    allowanceThreshold = t; allowanceAmount = a;
+    localStorage.setItem('upah20_beras_threshold', String(t));
+    localStorage.setItem('upah20_beras_amount', String(a));
+    rerender();
+  }
+
+  function renderRumah(){
+    const box=document.getElementById('rumahList'); box.innerHTML='';
+    rumah.forEach((r,idx)=>{
+      const div=document.createElement('span'); div.className='chip';
+      const s=document.createElement('span'); s.textContent=r; div.appendChild(s);
+      const b=document.createElement('button'); b.textContent='✕'; b.onclick=()=>{ rumah.splice(idx,1); renderRumah(); rerender(); save('rumah',rumah); }; div.appendChild(b);
+      box.appendChild(div);
+    });
+  }
+  function addRumah(){
+    const el=document.getElementById('inpRumah'); const v=(el.value||'').trim();
+    if(!v) return; if(!rumah.includes(v)) rumah.push(v);
+    el.value=''; renderRumah(); rerender(); save('rumah',rumah);
+  }
+  function clearRumah(){ if(!confirm('Kosongkan semua rumah?')) return; rumah=[]; renderRumah(); rerender(); save('rumah',rumah); }
+
+  function addWorker(){
+    rows.push({ nama:'', kelas:'Tukang', group:'', rumah:['','','','','','',''], ket:'' });
+    rerender();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+  function removeWorker(i){ rows.splice(i,1); rerender(); }
+  function clearAllDays(){ rows.forEach(r=> r.rumah=['','','','','','','']); rerender(); }
+    // Helpers to group rows
+  
+function groupRows(){
+  const map = new Map();
+  groupList.forEach(g=> map.set(g, []));
+  const others = new Map();
+  // Keep ORIGINAL index from `rows`, even when filtering by search
+  const _sourceRows = (searchName && searchName.length)
+    ? rows.map((r,i)=>[r,i]).filter(([r])=> String(r.nama||'').toLowerCase().includes(searchName))
+    : rows.map((r,i)=>[r,i]);
+  _sourceRows.forEach(([r,idx])=>{
+    const g = r.group || '';
+    const item = {row:r, idx};
+    if(map.has(g)){ map.get(g).push(item); }
+    else {
+      if(!others.has(g)) others.set(g, []);
+      others.get(g).push(item);
+    }
+  });
+  const arr = [];
+  map.forEach((items,g)=>{ arr.push([g, items]); });
+  if(others.has('')){
+    arr.push(['— Tanpa Group —', others.get('')]);
+    others.delete('');
+  }
+  others.forEach((items,g)=>{ arr.push([g, items]); });
+  return arr.filter(([g,items])=> items.length>0);
+}
+function rowCalc(r){
+    const rate=Number(classRates[r.kelas]||0);
+    const hari = r.rumah.reduce((a,b)=> {
+      if(!b) return a;
+      const isHalf = (b==='1/2 Lain') || /^\s*1\/2\s+/.test(b);
+      return a + (isHalf ? 0.5 : 1);
+    }, 0);
+    
+const upahPokok = hari * rate;
+    const uangBeras = hari > allowanceThreshold ? allowanceAmount : 0;
+    const bonus = Number((r.bonus??'').toString().replace(/[^\d]/g,''))||0;
+    const totalBayar = upahPokok + uangBeras + bonus;
+    return {rate, hari, upahPokok, uangBeras, bonus, totalBayar};
+  }
+
+  function renderTable(){
+    const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+    let sumHari=0, sumUpahPokok=0, sumBeras=0, sumBonus=0, sumTotalBayar=0;
+    const grouped = groupRows();
+    const colCount = 19;
+
+    grouped.forEach(([gName, items])=>{
+      let zi = 0; // zebra counter per-group
+      const trHead = document.createElement('tr');
+      trHead.className = 'group-head';
+      const td = document.createElement('td'); td.colSpan = colCount; 
+      td.innerHTML = `Group: <b>${gName || '—'}</b> <span class="muted">( ${items.length} orang )</span>`;
+      trHead.appendChild(td);
+      tbody.appendChild(trHead);
+
+      let gHari=0,gUpah=0,gBeras=0,gBonus=0,gTotal=0;
+      items.forEach(({row:r, idx})=>{
+        const tr=document.createElement('tr');
+        const tdNo=document.createElement('td'); tdNo.className='center'; tdNo.textContent=idx+1; tr.appendChild(tdNo);
+
+        const tdNama=document.createElement('td'); tdNama.innerHTML = `<input class='input' value="${r.nama||''}" oninput="rows[${idx}].nama=this.value; save('rows',rows);" />`; tr.appendChild(tdNama);
+
+        const tdKelas=document.createElement('td');
+        const sK=document.createElement('select'); sK.className='input';
+        ['Senior','Tukang','Kenek'].forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; if((r.kelas||'Tukang')===k) o.selected=true; sK.appendChild(o); });
+        sK.onchange=(e)=>{ rows[idx].kelas=e.target.value; rerender(); }; tdKelas.appendChild(sK); tr.appendChild(tdKelas);
+
+        const tdGroup=document.createElement('td');
+        const sG=document.createElement('select'); sG.className='input';
+        const opt0=document.createElement('option'); opt0.value=''; opt0.textContent='—'; sG.appendChild(opt0);
+        groupList.forEach(gg=>{ const o=document.createElement('option'); o.value=gg; o.textContent=gg; if((r.group||'')===gg) o.selected=true; sG.appendChild(o); });
+        sG.onchange=(e)=>{ rows[idx].group = e.target.value; save('rows', rows); rerender(); };
+        tdGroup.appendChild(sG); tr.appendChild(tdGroup);
+
+        const {rate, hari, upahPokok, uangBeras, bonus, totalBayar} = rowCalc(r);
+        const tdRate=document.createElement('td'); tdRate.className='right hide-sm'; tdRate.textContent=rp(rate); tr.appendChild(tdRate);
+
+        for (let ui=0; ui<7; ui++){ const di = displayDayOrder[ui];
+          const tdR=document.createElement('td'); tdR.className='center';
+          const sel=document.createElement('select'); sel.className='input';
+          const p0=document.createElement('option'); p0.value=''; p0.textContent='—'; sel.appendChild(p0);
+          rumah.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; if((r.rumah[di]||'')===k) o.selected=true; sel.appendChild(o); });
+          sel.onchange=(e)=>{ rows[idx].rumah[di]=e.target.value; rerender(); };
+          tdR.appendChild(sel);
+          tr.appendChild(tdR);
         }
-      }catch(_){}
-      return res;
-    };
+
+        const tdH=document.createElement('td'); tdH.className='right'; tdH.textContent=fmtHari(hari); tr.appendChild(tdH);
+        const tdU=document.createElement('td'); tdU.className='right'; tdU.textContent=rp(upahPokok); tr.appendChild(tdU);
+        const tdB=document.createElement('td'); tdB.className='right'; tdB.textContent=rp(uangBeras); tr.appendChild(tdB);
+        const tdBonus=document.createElement('td'); tdBonus.className='right'; tdBonus.innerHTML = `<input class='input right' type='number' inputmode='numeric' placeholder='0' value="${(r.bonus??'')}" oninput="this.value=this.value.replace(/[^\\d]/g,''); rows[${idx}].bonus=this.value; save('rows',rows);" onblur="rerender();" />`; tr.appendChild(tdBonus);
+        const tdTB=document.createElement('td'); tdTB.className='right'; tdTB.textContent=rp(totalBayar); tr.appendChild(tdTB);
+
+        const tdKet=document.createElement('td'); tdKet.className='hide-sm'; tdKet.innerHTML = `<input class='input' placeholder='Keterangan…' value="${r.ket||''}" oninput="rows[${idx}].ket=this.value; save('rows',rows);" />`; tr.appendChild(tdKet);
+
+        const tdA=document.createElement('td'); tdA.className='center'; tdA.innerHTML=`<button class='btn small' onclick='removeWorker(${idx})'>Hapus</button>`; tr.appendChild(tdA);
+
+        sumHari += hari; sumUpahPokok += upahPokok; sumBeras += uangBeras; sumBonus += bonus; sumTotalBayar += totalBayar;
+        gHari += hari; gUpah += upahPokok; gBeras += uangBeras; gBonus += bonus; gTotal += totalBayar;
+        
+        tr.classList.add( (zi % 2 === 0) ? 'zebra-a' : 'zebra-b' );
+        zi++;
+    
+        tbody.appendChild(tr);
+      });
+
+      const trSub = document.createElement('tr'); trSub.className='group-sub';
+      trSub.innerHTML = `
+        <td colspan="12" class="right sum">Subtotal Group ${gName}</td>
+        <td class="right sum">${fmtHari(gHari)}</td>
+        <td class="right sum">${rp(gUpah)}</td>
+        <td class="right sum">${rp(gBeras)}</td>
+        <td class="right sum">${rp(gBonus)}</td>
+        <td class="right sum">${rp(gTotal)}</td>
+        <td class="hide-sm"></td><td></td>`;
+      tbody.appendChild(trSub);
+    });
+
+    document.getElementById('sumHari').textContent=fmtHari(sumHari);
+    document.getElementById('sumUpahPokok').textContent=rp(sumUpahPokok);
+    document.getElementById('sumBeras').textContent=rp(sumBeras);
+    document.getElementById('sumTotalBayar').textContent=rp(sumTotalBayar);
+    document.getElementById('sumBonus').textContent=rp(sumBonus);
+    // Pills
+    (function(){
+    var el;
+    el=document.getElementById('pillHari'); if(el) el.textContent=fmtHari(sumHari);
+    el=document.getElementById('pillPokok'); if(el) el.textContent=rp(sumUpahPokok);
+    el=document.getElementById('pillBeras'); if(el) el.textContent=rp(sumBeras);
+    el=document.getElementById('pillTotal'); if(el) el.textContent=rp(sumTotalBayar);
+  })();
+
+    save('rows',rows); save('classRates',classRates);
+    renderAllRekap();
   }
-})();
 
-// Load snapshot bila datang dari rekap
-(async function(){
-  const PREFIX='upah20_snap__';
-  const p=new URLSearchParams(location.search);
-  const histStart=p.get('histStart');
-  const histEnd=p.get('histEnd');
-  const histLegacy=p.get('hist'); // kompat lama
-  if(!(histStart||histLegacy)){ rerender(); return; }
+  function quickChipsHTML(idx){
+    const tops = rumah.slice(0, Math.min(6, rumah.length));
+    const chips = tops.map(r=>`<span class='chip' onclick='setAllDays(${idx}, ${JSON.stringify(r)})'>${r}</span>`).join('');
+    const half = rumah.includes('1/2 Lain') ? "<span class='chip' onclick=\"setAllDays("+idx+", '1/2 Lain')\">1/2 Lain</span>" : '';
+    return chips + half;
+  }
+  function setAllDays(idx, val){
+    rows[idx].rumah = dayKeys.map(()=> val); rerender();
+  }
 
-  const keysToTry=[];
-  if(histStart) keysToTry.push(PREFIX+histStart+'__'+(histEnd||'na'));
-  if(histStart) keysToTry.push(PREFIX+histStart);
-  if(histLegacy) keysToTry.push(PREFIX+histLegacy+'__na', PREFIX+histLegacy);
+  function renderCards(){
+    const host = document.getElementById('cardsBody'); host.innerHTML='';
+    const grouped = groupRows();
 
-  let snap=null;
-  for(const k of keysToTry){ snap = await tryServerGet(k); if(snap) break; }
-  if(!snap){
-    for(const k of keysToTry){
-      try{ snap = JSON.parse(localStorage.getItem(k)||'null'); }catch(_){}
-      if(snap) break;
+    let sumHari=0, sumUpahPokok=0, sumBeras=0, sumBonus=0, sumTotalBayar=0;
+
+    grouped.forEach(([gName, items])=>{
+      let zc = 0; // zebra counter for cards
+      const gh = document.createElement('div');
+      gh.className='chip'; gh.style.margin='6px 0 8px'; gh.innerHTML = `Group: <b style="margin-left:6px;">${gName || '—'}</b> <span class="muted" style="margin-left:6px;">(${items.length} orang)</span>`;
+      host.appendChild(gh);
+
+      let gHari=0,gUpah=0,gBeras=0,gBonus=0,gTotal=0;
+
+      items.forEach(({row:r, idx})=>{
+        const {rate, hari, upahPokok, uangBeras, bonus, totalBayar} = rowCalc(r);
+
+        const card = document.createElement('div');
+        card.className='worker-card';
+        card.innerHTML = `
+          <div class="card-header">
+            <input class="input" value="${r.nama||''}" placeholder="Nama pekerja" oninput="rows[${idx}].nama=this.value; save('rows',rows);" style="max-width:52%;">
+            <button class="btn small" onclick="removeWorker(${idx})">Hapus</button>
+          </div>
+          <div class="kv" style="margin:8px 0;">
+            <div style="min-width:130px; flex:1;">
+              <label class="muted">Kelas</label>
+              <select class="input" onchange="rows[${idx}].kelas=this.value; rerender();">
+                ${['Senior','Tukang','Kenek'].map(k=>`<option ${((r.kelas||'Tukang')===k)?'selected':''}>${k}</option>`).join('')}
+              </select>
+            </div>
+            <div style="min-width:130px; flex:1;">
+              <label class="muted">Group</label>
+              <select class="input" onchange="rows[${idx}].group=this.value; save('rows',rows); rerender();">
+                <option value="">—</option>
+                ${groupList.map(g=>`<option value="${g}" ${(r.group||'')===g?'selected':''}>${g}</option>`).join('')}
+              </select>
+            </div>
+          </div><div class="daygrid" style="margin-top:8px;">
+            ${displayDayKeys.map((d,ui)=>`
+              <div class="item">
+                <label class="muted">${d}</label>
+                <select class="input" onchange="rows[${idx}].rumah[${displayDayOrder[ui]}]=this.value; rerender();">
+                  <option value="">—</option>
+                  ${rumah.map(k=>`<option value="${k}" ${(r.rumah[displayDayOrder[ui]]||'')===k?'selected':''}>${k}</option>`).join('')}
+                </select>
+              </div>
+            `).join('')}
+          </div>
+          <div class="totals" style="margin-top:10px;">
+            <span class="chip">Tarif: <b style="margin-left:6px;">${rp(rate)}</b></span>
+            <span class="chip">Hari: <b style="margin-left:6px;">${fmtHari(hari)}</b></span>
+            <span class="chip">Upah: <b style="margin-left:6px;">${rp(upahPokok)}</b></span>
+            <span class="chip">Beras: <b style="margin-left:6px;">${rp(uangBeras)}</b></span>
+            <span class="chip">Total: <b style="margin-left:6px;">${rp(totalBayar)}</b></span>
+          </div>
+        `;
+        
+    card.classList.add( (zc % 2 === 0) ? 'zebra-a' : 'zebra-b' );
+    zc++;
+    
+    host.appendChild(card);
+
+        sumHari += hari; sumUpahPokok += upahPokok; sumBeras += uangBeras; sumBonus += bonus; sumTotalBayar += totalBayar;
+        gHari += hari; gUpah += upahPokok; gBeras += uangBeras; gBonus += bonus; gTotal += totalBayar;
+      });
+
+      const sub = document.createElement('div');
+      sub.className='chip'; sub.style.margin='2px 0 12px'; sub.style.background='rgba(14,165,183,0.08)';
+      sub.innerHTML = `Subtotal ${gName}: <b style="margin-left:6px;">Hari ${fmtHari(gHari)}</b> • <b style="margin-left:6px;">${rp(gTotal)}</b>`;
+      host.appendChild(sub);
+    });
+
+    // Pills totals update
+    document.getElementById('pillHari').textContent=fmtHari(sumHari);
+    document.getElementById('pillPokok').textContent=rp(sumUpahPokok);
+    document.getElementById('pillBeras').textContent=rp(sumBeras);
+    document.getElementById('pillTotal').textContent=rp(sumTotalBayar);
+
+    save('rows',rows); save('classRates',classRates);
+    renderAllRekap();
+  }
+
+  // Rekap total per rumah
+  function computeRekap(){
+    const map = {};
+    rows.forEach(r=>{
+      const rate = Number(classRates[r.kelas]||0);
+      for(let di=0; di<7; di++){
+        const v = r.rumah[di];
+        if(!v) continue;
+        const w = (v==='1/2 Lain') ? 0.5 : 1;
+        if(!map[v]) map[v] = {hari:0, upah:0};
+        map[v].hari += w;
+        map[v].upah += rate * w;
+      }
+    });
+    return map;
+  }
+  function computeRekapPerDay(){
+    const map = {}; // {Rumah: [{cnt, upah} x7]}
+    rows.forEach(r=>{
+      const rate = Number(classRates[r.kelas]||0);
+      for(let di=0; di<7; di++){
+        const v = r.rumah[di];
+        if(!v) continue;
+        const w = (v==='1/2 Lain') ? 0.5 : 1;
+        if(!map[v]) map[v] = Array.from({length:7}, ()=>({cnt:0, upah:0}));
+        map[v][di].cnt += 1;
+        map[v][di].upah += rate * w;
+      }
+    });
+    return map;
+  }
+  function renderRekapIn(containerId){
+    const host = document.getElementById(containerId);
+    if(!host) return;
+    const map = computeRekap();
+    const keys = Object.keys(map).sort((a,b)=>{
+      const ia = rumah.indexOf(a), ib = rumah.indexOf(b);
+      if(ia!==-1 && ib!==-1) return ia-ib;
+      if(ia!==-1) return -1;
+      if(ib!==-1) return 1;
+      return a.localeCompare(b);
+    });
+    if(keys.length===0){ host.innerHTML = '<div class="muted">Belum ada data.</div>'; return; }
+    let totalHari=0, totalUpah=0;
+    const rowsHTML = keys.map(k=>{
+      const h = map[k].hari; const u = map[k].upah;
+      totalHari += h; totalUpah += u;
+      return `<tr><td>${k}</td><td class="right">${fmtHari(h)}</td><td class="right">${rp(u)}</td></tr>`;
+    }).join('');
+    host.innerHTML = `
+      <div class="scroll-x">
+        <table style="min-width:520px;">
+          <thead><tr><th>Rumah</th><th class="right">Total Hari</th><th class="right">Total Upah</th></tr></thead>
+          <tbody>${rowsHTML}</tbody>
+          <tfoot><tr><td class="right sum">TOTAL</td><td class="right sum">${fmtHari(totalHari)}</td><td class="right sum">${rp(totalUpah)}</td></tr></tfoot>
+        </table>
+      </div>`;
+  }
+  function renderRekapPerDayIn(containerId){
+    const host = document.getElementById(containerId);
+    if(!host) return;
+    const map = computeRekapPerDay();
+    const keys = Object.keys(map).sort((a,b)=>{
+      const ia = rumah.indexOf(a), ib = rumah.indexOf(b);
+      if(ia!==-1 && ib!==-1) return ia-ib;
+      if(ia!==-1) return -1;
+      if(ib!==-1) return 1;
+      return a.localeCompare(b);
+    });
+    if(keys.length===0){ host.innerHTML = '<div class="muted">Belum ada data.</div>'; return; }
+    const headerDays = displayDayKeys.map(d=>`<th class="right">${d}</th>`).join('');
+    const rowsHTML = keys.map(k=>{
+      const cells = displayDayOrder.map(di => map[k][di]).map(x=>`<td class="right"><div class=\"cellstack\"><span class=\"cnt\">x${x.cnt}</span><span>${rp(x.upah)}</span></div></td>`).join('');
+      return `<tr><td>${k}</td>${cells}</tr>`;
+    }).join('');
+    const totals = displayDayOrder.map(di=>{ let cnt=0, up=0; keys.forEach(k=>{ cnt += map[k][di].cnt; up += map[k][di].upah; }); return `<td class=\"right\"><div class=\"cellstack\"><span class=\"cnt\">x${cnt}</span><span>${rp(up)}</span></div></td>`; }).join('');
+    host.innerHTML = `
+      <div class="scroll-x">
+        <table style="min-width:900px;">
+          <thead><tr><th>Rumah</th>${headerDays}</tr></thead>
+          <tbody>${rowsHTML}</tbody>
+          <tfoot><tr><td class="right sum">TOTAL</td>${totals}</tr></tfoot>
+        </table>
+      </div>`;
+  }
+  function renderAllRekap(){
+    renderRekapIn('rekap3Body'); 
+    renderRekapPerDayIn('rekap3DayBody');
+  }
+
+  // ===== Export Helpers =====
+  function _csvEscape(v){
+    if(v===null || v===undefined) v = '';
+    v = String(v);
+    if (/[",\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }
+  function _timestampName(prefix, ext){
+    const d = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const name = `${prefix}_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.${ext}`;
+    return name;
+  }
+  function _downloadBlob(content, mime, filename){
+    const blob = new Blob([content], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    // Fallback for browsers that don't honor download attribute
+    if (typeof a.download === 'undefined') {
+      window.open(url, '_blank');
+    } else {
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+
+  // Export JSON (raw data + settings)
+  function exportJSON(){
+    try{
+      const payload = {
+        meta: {
+          generated_at: new Date().toISOString(),
+          title: 'Kalkulator Upah 7 Hari',
+          version: 1
+        },
+        settings: {
+          classRates,
+          rumah,
+          allowanceThreshold,
+          allowanceAmount,
+          dayKeys,
+          groupList
+        },
+        rows
+      };
+      const jsonStr = JSON.stringify(payload, null, 2);
+      _downloadBlob(jsonStr, 'application/json', _timestampName('upah7hari', 'json'));
+    }catch(err){
+      console.error(err);
+      alert('Gagal mengekspor JSON: ' + err.message);
     }
   }
-  if(snap){
-    if(Array.isArray(snap.rows)) rows=snap.rows;
-    if(snap.classRates) classRates=snap.classRates;
-    if(Array.isArray(snap.rumah)) rumah=snap.rumah;
-    const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
-    if(ps) ps.value=snap.periodStart||histStart||'';
-    if(pe && (snap.periodEnd||'')) pe.value=snap.periodEnd;
+
+  // Export CSV (tampilan tabel pekerja)
+  function downloadCSV(){
+    try{
+      const headers = [
+        'No','Nama','Kelas','Group','Rate',
+        ...displayDayKeys, 'Hari','Upah Pokok','Uang Beras','Total','Keterangan'
+      ];
+      const lines = [ headers.map(_csvEscape).join(',') ];
+
+      rows.forEach((r, idx)=>{
+        const calc = rowCalc(r);
+        const rowVals = [
+          idx+1,
+          r.nama||'',
+          r.kelas||'',
+          r.group||'',
+          calc.rate||0,
+          ...displayDayOrder.map(di=> (r.rumah||[])[di]||''),
+          calc.hari||0,
+          calc.upahPokok||0,
+          calc.uangBeras||0,
+          calc.totalBayar||0,
+          r.ket||''
+        ];
+        
+        lines.push(rowVals.map(_csvEscape).join(','));
+      });
+
+      const csv = lines.join('\r\n');
+      _downloadBlob(csv, 'text/csv;charset=utf-8', _timestampName('upah7hari', 'csv'));
+    }catch(err){
+      console.error(err);
+      alert('Gagal mengekspor CSV: ' + err.message);
+    }
   }
-  rerender();
+
+
+
+  function setView(m){ viewMode = m; localStorage.setItem('upah20_viewMode', m); rerender(); }
+  function toggleView(){ return viewMode==='table' ? 'cards' : 'table'; }
+
+  function rerender(){
+    document.getElementById('tableWrap').style.display = (viewMode==='table') ? 'block' : 'none';
+    document.getElementById('cardsWrap').style.display = (viewMode==='cards') ? 'block' : 'none';
+    if(viewMode==='table') renderTable(); else renderCards();
+    save('rows',rows); save('classRates',classRates);
+  }
+
+  // Boot
+  
+  // Collapsible persistence
+  const _collSections = [
+    {id:'secRates', key:'upah20_coll_rates'},
+    {id:'secRumah', key:'upah20_coll_rumah'},
+    {id:'rekap3', key:'upah20_coll_rekapTotal'},
+    {id:'rekap3day', key:'upah20_coll_rekapPerHari'},
+  ];
+  function bootCollapsibles(){
+    _collSections.forEach(({id,key})=>{
+      const el = document.getElementById(id);
+      if(!el) return;
+      const saved = localStorage.getItem(key);
+      if(saved===null){ el.removeAttribute('open'); }
+      else if(saved==='0'){ el.removeAttribute('open'); }
+      else if(saved==='1'){ el.setAttribute('open',''); }
+      el.addEventListener('toggle', ()=>{
+        localStorage.setItem(key, el.open ? '1' : '0');
+      });
+    });
+  }
+
+  function init(){
+    bootRatesUI(); renderRumah(); bootBerasUI();
+    bootCollapsibles();
+    const si = document.getElementById('searchName');
+    if(si){
+      si.value = searchName || '';
+      si.addEventListener('input', e=>{
+        searchName = String(e.target.value||'').toLowerCase().trim();
+        localStorage.setItem('upah20_search', searchName);
+        rerender();
+      });
+    }
+    rerender();
+  }
+  init();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  try{
+    if (typeof allowanceThreshold !== 'undefined') {
+      const t = document.getElementById('thresholdInput'); if (t) t.value = allowanceThreshold;
+    }
+    if (typeof allowanceAmount !== 'undefined') {
+      const b = document.getElementById('berasInput'); if (b) b.value = allowanceAmount;
+    }
+  }catch(e){ console.error(e); }
+});
+</script>
+
+
+
+<script>
+// === Injected by ChatGPT (tidy): robust sticky header/footer with debounced sync ===
+(function(){
+  const wrap = document.getElementById('tableWrap');
+  const tbl  = document.getElementById('tbl');
+  if(!wrap || !tbl) return;
+  if (wrap.dataset.stickyApplied === '1') return;
+  wrap.dataset.stickyApplied = '1';
+
+  const headBox = document.createElement('div');
+  headBox.className = 'sticky-header';
+  const footBox = document.createElement('div');
+  footBox.className = 'sticky-footer';
+
+  const headTable = document.createElement('table');
+  const footTable = document.createElement('table');
+  headBox.appendChild(headTable);
+  footBox.appendChild(footTable);
+
+  const thead = tbl.querySelector('thead');
+  const tfoot = tbl.querySelector('tfoot');
+
+  if (thead){
+    headTable.innerHTML = '<thead>' + thead.innerHTML + '</thead>';
+    thead.classList.add('is-hidden');
+  }
+  if (tfoot){
+    footTable.innerHTML = '<tfoot>' + tfoot.innerHTML + '</tfoot>';
+    tfoot.classList.add('is-hidden');
+  }
+
+  wrap.prepend(headBox);
+  wrap.appendChild(footBox);
+
+  const raf = window.requestAnimationFrame;
+  let rAF_token = null;
+  let scrollLeftMemo = 0;
+
+  function measureAndSync(){
+    rAF_token = null;
+    const srcRow = tbl.tHead ? tbl.tHead.rows[0] : (tbl.tBodies[0]?.rows[0] || null);
+    const dstHeadRow = headTable.tHead ? headTable.tHead.rows[0] : null;
+    const dstFootRow = footTable.tFoot ? footTable.tFoot.rows[0] : null;
+    if (srcRow && dstHeadRow){
+      const srcCells = Array.from(srcRow.cells);
+      const dstCells = Array.from(dstHeadRow.cells);
+      const n = Math.min(srcCells.length, dstCells.length);
+      for (let i=0;i<n;i++){
+        const w = srcCells[i].getBoundingClientRect().width;
+        Object.assign(dstCells[i].style, {width: w+'px', minWidth: w+'px', maxWidth: w+'px'});
+      }
+    }
+    if (srcRow && dstFootRow){
+      const srcCells = Array.from(srcRow.cells);
+      const dstCells = Array.from(dstFootRow.cells);
+      const n = Math.min(srcCells.length, dstCells.length);
+      for (let i=0;i<n;i++){
+        const w = srcCells[i].getBoundingClientRect().width;
+        Object.assign(dstCells[i].style, {width: w+'px', minWidth: w+'px', maxWidth: w+'px'});
+      }
+    }
+    const headH = headBox.getBoundingClientRect().height;
+    const footH = footBox.getBoundingClientRect().height;
+    wrap.classList.add('padding-for-sticky');
+    wrap.style.setProperty('--stickyHeadH', headH + 'px');
+    wrap.style.setProperty('--stickyFootH', footH + 'px');
+
+    // keep overlays aligned with horizontal scroll
+    headTable.style.transform = `translateX(${-wrap.scrollLeft}px)`;
+    footTable.style.transform = `translateX(${-wrap.scrollLeft}px)`;
+  }
+
+  function debounceSync(){
+    if (rAF_token) return;
+    rAF_token = raf(measureAndSync);
+  }
+
+  function syncFooterContent(){
+    const origFoot = tbl.querySelector('tfoot');
+    if (!origFoot || !footTable.tFoot) return;
+    footTable.tFoot.innerHTML = origFoot.innerHTML;
+    debounceSync();
+  }
+
+  // Observe table changes (totals update)
+  const mo = new MutationObserver(syncFooterContent);
+  mo.observe(tbl, {subtree: true, childList: true, characterData: true});
+
+  // Initial sync after layout
+  raf(()=>{ debounceSync(); syncFooterContent(); });
+
+  // Resync on resize and on column visibility toggles (if any)
+  window.addEventListener('resize', debounceSync);
+
+  // Horizontal scroll alignment
+  wrap.addEventListener('scroll', ()=>{
+    // Only reapply transform if changed enough
+    if (wrap.scrollLeft !== scrollLeftMemo){
+      scrollLeftMemo = wrap.scrollLeft;
+      headTable.style.transform = `translateX(${-scrollLeftMemo}px)`;
+      footTable.style.transform = `translateX(${-scrollLeftMemo}px)`;
+    }
+  }, {passive:true});
 })();
 </script>
-</body></html>
+
+
+<!-- === Hide Kelas & Group: JS === -->
+<script>
+(function(){
+  const LS_KEY = 'upah_hide_cg';
+  const COLS_HIDDEN = 2;
+  let baseTfootColspan = null;
+
+  function markCardKVs(){
+    const wrap = document.getElementById('cardsWrap');
+    if(!wrap) return;
+    wrap.querySelectorAll('.kv').forEach(kv => {
+      const k = kv.querySelector('.k');
+      const label = (k?.textContent || '').trim().toLowerCase();
+      if(label === 'kelas' || label === 'group'){
+        kv.classList.add('hide-cg');
+      }
+    });
+  }
+
+  function observeCardsWrap(){
+    const wrap = document.getElementById('cardsWrap');
+    if(!wrap) return;
+    const mo = new MutationObserver(() => markCardKVs());
+    mo.observe(wrap, {childList:true, subtree:true});
+    markCardKVs();
+  }
+
+  function fixTfootColspan(){
+    const tbl = document.getElementById('tbl');
+    if(!tbl || !tbl.tFoot || !tbl.tFoot.rows.length) return;
+    const firstCell = tbl.tFoot.rows[0].cells[0];
+    if(!firstCell) return;
+    if(baseTfootColspan == null){
+      baseTfootColspan = parseInt(firstCell.getAttribute('data-base-colspan') || firstCell.colSpan || 0, 10);
+      if(!baseTfootColspan) baseTfootColspan = firstCell.colSpan || 0;
+      firstCell.setAttribute('data-base-colspan', String(baseTfootColspan));
+    }
+    const hide = document.body.classList.contains('hide-cg');
+    const next = Math.max(1, baseTfootColspan - (hide ? COLS_HIDDEN : 0));
+    if(firstCell.colSpan !== next) firstCell.colSpan = next;
+  }
+
+  function applyHideState(checked){
+    document.body.classList.toggle('hide-cg', checked);
+    try { localStorage.setItem(LS_KEY, checked ? '1' : '0'); } catch(e){}
+    fixTfootColspan();
+  }
+
+  function bootHideCG(){
+    const initial = (localStorage.getItem(LS_KEY) === '1');
+    const cb = document.getElementById('toggleHideCG');
+    if(cb){
+      cb.checked = initial;
+      cb.addEventListener('change', () => applyHideState(cb.checked));
+    }
+    observeCardsWrap();
+    applyHideState(initial);
+  }
+
+  document.addEventListener('DOMContentLoaded', bootHideCG);
+})();
+</script>
+
+
+<script>
+// === Column tagging for 'Kelas' and 'Group' so headers also hide ===
+(function(){
+  function findHeaderIndexByText(tbl, label) {
+    const thead = tbl && tbl.tHead;
+    if (!thead) return -1;
+    const row = thead.rows[0];
+    if (!row) return -1;
+    label = String(label || '').trim().toLowerCase();
+    for (let i=0; i<row.cells.length; i++) {
+      const t = (row.cells[i].textContent || '').trim().toLowerCase();
+      if (t === label) return i; // zero-based
+    }
+    return -1;
+  }
+
+  function tagColumn(tbl, colIdx, className) {
+    if (!tbl || colIdx < 0) return;
+    // th
+    const th = tbl.tHead && tbl.tHead.rows[0] && tbl.tHead.rows[0].cells[colIdx];
+    if (th) th.classList.add(className);
+    // td
+    const tb = tbl.tBodies && tbl.tBodies[0];
+    if (tb) {
+      for (const tr of tb.rows) {
+        if (tr.cells[colIdx]) tr.cells[colIdx].classList.add(className);
+      }
+    }
+  }
+
+  function tagKelasGroupColumns(){
+    const tbl = document.getElementById('tbl');
+    if(!tbl) return;
+    const idxKelas = findHeaderIndexByText(tbl, 'kelas');
+    const idxGroup = findHeaderIndexByText(tbl, 'group');
+    tagColumn(tbl, idxKelas, 'col-kelas');
+    tagColumn(tbl, idxGroup, 'col-group');
+  }
+
+  // Run once on DOM ready, and again if you re-render the table.
+  document.addEventListener('DOMContentLoaded', tagKelasGroupColumns);
+  // Expose for manual re-tagging after rerender()
+  window._tagKelasGroupColumns = tagKelasGroupColumns;
+})();
+</script>
+
+
+<script>
+// Aggressive tagging: any TH (or columnheader-like node) with exact text 'kelas' or 'group' gets hide-cg-el
+(function(){
+  const labels = new Set(['kelas','group']);
+
+  function tagHeaderNodes(root=document){
+    // 1) Tag all <th> that match
+    root.querySelectorAll('th').forEach(th => {
+      const t = (th.textContent || '').trim().toLowerCase();
+      if(labels.has(t)) th.classList.add('hide-cg-el');
+    });
+    // 2) Tag elements that look like header cells
+    root.querySelectorAll('[role="columnheader"], .table-header *, .thead *, .header-cell, .th').forEach(el => {
+      const t = (el.textContent || '').trim().toLowerCase();
+      if(labels.has(t)) el.classList.add('hide-cg-el');
+    });
+    // 3) If there are duplicated sticky headers implemented as a separate table/div:
+    //    Also tag any element with data-col-name or aria-label
+    root.querySelectorAll('[data-col-name], [aria-label]').forEach(el => {
+      const v = (el.getAttribute('data-col-name') || el.getAttribute('aria-label') || '').trim().toLowerCase();
+      if(labels.has(v)) el.classList.add('hide-cg-el');
+    });
+  }
+
+  // Run now and observe further mutations (render reflows)
+  document.addEventListener('DOMContentLoaded', () => {
+    tagHeaderNodes(document);
+    const mo = new MutationObserver(muts => {
+      for(const m of muts){
+        if(m.addedNodes && m.addedNodes.length){
+          m.addedNodes.forEach(n => {
+            if(n.nodeType === 1) tagHeaderNodes(n);
+          });
+        }
+      }
+    });
+    mo.observe(document.body, {childList:true, subtree:true});
+  });
+
+  // Expose for manual call after your rerender()
+  window._tagHideCGHeaders = tagHeaderNodes;
+})();
+</script>
+
+
+<script>
+  // === Periode Tanggal (persist to localStorage) ===
+  function bootPeriodUI(){
+    try{
+      var s = document.getElementById('periodStart');
+      var e = document.getElementById('periodEnd');
+      if(!s || !e) return;
+      s.value = localStorage.getItem('upah20_periodStart') || '';
+      e.value = localStorage.getItem('upah20_periodEnd') || '';
+      s.addEventListener('change', function(){ localStorage.setItem('upah20_periodStart', s.value || ''); });
+      e.addEventListener('change', function(){ localStorage.setItem('upah20_periodEnd', e.value || ''); });
+    }catch(_){}
+  }
+  // hook into existing boot flows after DOM ready
+  (function(){
+    if (document.readyState === 'complete' || document.readyState === 'interactive'){
+      setTimeout(bootPeriodUI, 0);
+    } else {
+      document.addEventListener('DOMContentLoaded', bootPeriodUI);
+    }
+  })();
+  // ensure saveAll also persists (in case user expects "Simpan" to include periode)
+  try{
+    var _origSaveAll = window.saveAll;
+    window.saveAll = function(){
+      try{
+        var s = document.getElementById('periodStart');
+        var e = document.getElementById('periodEnd');
+        if(s && e){
+          localStorage.setItem('upah20_periodStart', s.value || '');
+          localStorage.setItem('upah20_periodEnd', e.value || '');
+        }
+      }catch(_){}
+      if(typeof _origSaveAll === 'function'){ return _origSaveAll.apply(this, arguments); }
+    };
+  }catch(_){}
+</script>
+
+<script>
+(function(){
+  // Utilities
+  function fmt(n){ return (n<10?'0':'') + n; }
+  function toYMD(d){ return d.getFullYear() + '-' + fmt(d.getMonth()+1) + '-' + fmt(d.getDate()); }
+  function parseYMD(s){
+    if(!s) return null;
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if(!m) return null;
+    var y = +m[1], mo = +m[2]-1, da = +m[3];
+    var d = new Date(y,mo,da);
+    if(d.getFullYear()===y && d.getMonth()===mo && d.getDate()===da) return d;
+    return null;
+  }
+
+  let openCal = null;
+
+  function buildCalendar(targetInput){
+    closeCalendar();
+    const existing = document.querySelector('.mini-cal');
+    if(existing) existing.remove();
+
+    const rect = targetInput.getBoundingClientRect();
+    const root = document.createElement('div');
+    root.className = 'mini-cal';
+
+    // Position near input
+    const top = window.scrollY + rect.bottom + 6;
+    const left = window.scrollX + rect.left;
+    root.style.top = top + 'px';
+    root.style.left = left + 'px';
+
+    // State
+    const today = new Date();
+    let current = parseYMD(targetInput.value) || new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // Renderers
+    function render(){
+      root.innerHTML = '';
+      const header = document.createElement('header');
+      const title = document.createElement('div');
+      title.textContent = current.toLocaleString('id-ID', { month:'long', year:'numeric' });
+      const nav = document.createElement('div'); nav.className='nav';
+      const prev = document.createElement('button'); prev.textContent = '‹';
+      const next = document.createElement('button'); next.textContent = '›';
+      prev.onclick = function(){ current = new Date(current.getFullYear(), current.getMonth()-1, 1); render(); };
+      next.onclick = function(){ current = new Date(current.getFullYear(), current.getMonth()+1, 1); render(); };
+      nav.append(prev, next);
+      header.append(title, nav);
+      root.append(header);
+
+      const grid = document.createElement('div'); grid.className = 'grid';
+      // DOW: Senin (S), Selasa (S), Rabu (R), Kamis (K), Jumat (J), Sabtu (S), Minggu (M)
+      ['S','S','R','K','J','S','M'].forEach(function(lab){
+        const el = document.createElement('div'); el.className='dow'; el.textContent=lab; grid.append(el);
+      });
+      const firstDow = (new Date(current.getFullYear(), current.getMonth(), 1).getDay()+6)%7; // Monday=0
+      const daysInMonth = new Date(current.getFullYear(), current.getMonth()+1, 0).getDate();
+      const prevMonthDays = new Date(current.getFullYear(), current.getMonth(), 0).getDate();
+
+      // Fill previous month overflow
+      for(let i=0;i<firstDow;i++){
+        const d = document.createElement('div'); d.className='day out';
+        d.textContent = (prevMonthDays-firstDow+1+i);
+        d.onclick = function(){
+          const dt = new Date(current.getFullYear(), current.getMonth()-1, (prevMonthDays-firstDow+1+i));
+          pick(dt);
+        };
+        grid.append(d);
+      }
+      // Fill current month
+      for(let day=1; day<=daysInMonth; day++){
+        const d = document.createElement('div'); d.className='day';
+        d.textContent = day;
+        const dt = new Date(current.getFullYear(), current.getMonth(), day);
+        if (toYMD(dt) === toYMD(today)) d.classList.add('today');
+        d.onclick = function(){ pick(dt); };
+        grid.append(d);
+      }
+      // Fill next month overflow to complete grid rows
+      const totalCells = firstDow + daysInMonth;
+      const nextCount = (7 - (totalCells % 7)) % 7;
+      for(let i=1;i<=nextCount;i++){
+        const d = document.createElement('div'); d.className='day out';
+        d.textContent = i;
+        d.onclick = function(){
+          const dt = new Date(current.getFullYear(), current.getMonth()+1, i);
+          pick(dt);
+        };
+        grid.append(d);
+      }
+
+      root.append(grid);
+
+      const footer = document.createElement('div'); footer.className='footer';
+      const btnToday = document.createElement('button'); btnToday.textContent='Hari ini';
+      const btnClear = document.createElement('button'); btnClear.textContent='Hapus';
+      btnToday.onclick = function(){ pick(today); };
+      btnClear.onclick = function(){ targetInput.value=''; targetInput.dispatchEvent(new Event('change')); closeCalendar(); };
+      footer.append(btnToday, btnClear);
+      root.append(footer);
+    }
+
+    function pick(dateObj){
+      targetInput.value = toYMD(dateObj);
+      targetInput.dispatchEvent(new Event('change'));
+      closeCalendar();
+    }
+
+    function closeCalendar(){
+      const el = document.querySelector('.mini-cal');
+      if(el) el.remove();
+      openCal = null;
+      document.removeEventListener('click', onDocClick, true);
+      window.removeEventListener('resize', onWinResize, true);
+      window.removeEventListener('scroll', onWinResize, true);
+    }
+
+    function onDocClick(e){
+      const root = document.querySelector('.mini-cal');
+      if(root && root.contains(e.target)) return;
+      if(e.target === targetInput) return;
+      const btn = document.querySelector('.cal-btn[data-cal-for="'+targetInput.id+'"]');
+      if(btn && btn.contains(e.target)) return;
+      closeCalendar();
+    }
+    function onWinResize(){ closeCalendar(); }
+
+    document.body.appendChild(root);
+    render();
+    openCal = { close: closeCalendar };
+
+    setTimeout(function(){
+      document.addEventListener('click', onDocClick, true);
+      window.addEventListener('resize', onWinResize, true);
+      window.addEventListener('scroll', onWinResize, true);
+    }, 0);
+  }
+
+  function attachCalendar(id){
+    const input = document.getElementById(id);
+    if(!input) return;
+    input.addEventListener('focus', function(){
+      buildCalendar(input);
+    });
+    const btn = document.querySelector('.cal-btn[data-cal-for="'+id+'"]');
+    if(btn){
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        buildCalendar(input);
+      });
+    }
+  }
+
+  function bootMiniCal(){
+    attachCalendar('periodStart');
+    attachCalendar('periodEnd');
+  }
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive'){
+    setTimeout(bootMiniCal, 0);
+  } else {
+    document.addEventListener('DOMContentLoaded', bootMiniCal);
+  }
+})();
+</script>
+<!-- Injected: Weekly summary save + auto-close on Save -->
+<script>
+(function(){
+  const KEY_ROWS='upah20_rows', KEY_RATES='upah20_classRates', KEY_THRESH='upah20_beras_threshold', KEY_AMT='upah20_beras_amount', KEY_HISTORY='upah20_period_history_v2';
+  function loadJSON(k, d){ try{return JSON.parse(localStorage.getItem(k))??d;}catch(_){return d;} }
+  function computeTotals(){
+    const rows=loadJSON(KEY_ROWS,[])||[], classRates=loadJSON(KEY_RATES,{"Senior":145000,"Tukang":130000,"Kenek":120000});
+    const thr=Number(localStorage.getItem(KEY_THRESH)||'3.9'), amt=Number(localStorage.getItem(KEY_AMT)||'20000');
+    let pekerja=0,sumHari=0,sumPokok=0,sumBeras=0,sumBonus=0,sumTotal=0;
+    for(const r of rows){
+      const rate=Number(classRates[r.kelas]||0);
+      const hari=(r.rumah||[]).reduce((a,b)=>{ if(!b) return a; const half=(b==='1/2 Lain') || /^\s*1\/2\s+/.test(b); return a+(half?0.5:1); },0);
+      const pokok=hari*rate, beras=(hari>thr?amt:0), bonus=Number((r.bonus??'').toString().replace(/[^\d]/g,''))||0;
+      pekerja++; sumHari+=hari; sumPokok+=pokok; sumBeras+=beras; sumBonus+=bonus; sumTotal+=pokok+beras+bonus;
+    }
+    return {pekerja,sumHari,sumPokok,sumBeras,sumBonus,sumTotal};
+  }
+  function toISO(d){const x=new Date(d); return isNaN(x)?'':x.toISOString().slice(0,10);}
+  function addDays(s,n){const d=new Date(s); d.setDate(d.getDate()+n); return toISO(d);}
+  function saveWeeklyToHistory(){
+    const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
+    const start=ps&&ps.value?ps.value:'', end=pe&&pe.value?pe.value:(start?addDays(start,6):'');
+    if(!start) return;
+    const t=computeTotals();
+    const rec={periodeMulai:start,periodeSelesai:end,pekerja:t.pekerja,sumHari:Math.round(t.sumHari*10)/10,sumPokok:t.sumPokok,sumBeras:t.sumBeras,sumBonus:t.sumBonus,sumTotal:t.sumTotal,ts:Date.now()};
+    const arr=loadJSON(KEY_HISTORY,[]); const idx=arr.findIndex(x=>x.periodeMulai===rec.periodeMulai); if(idx>=0)arr[idx]=rec; else arr.push(rec);
+    localStorage.setItem(KEY_HISTORY, JSON.stringify(arr));
+  }
+  // Patch saveAll if exists
+  const _orig=window.saveAll;
+  window.saveAll=function(){
+    try{ if(typeof _orig==='function') _orig(); }catch(e){}
+    try{ saveWeeklyToHistory(); }catch(e){}
+    setTimeout(function(){ try{window.close();}catch(_){}
+      setTimeout(function(){ try{window.location.replace('about:blank');}catch(_){} },200);
+    },150);
+  };
+  // Robust hook for any "Simpan" button
+  window.addEventListener('DOMContentLoaded', function(){
+    const btns=Array.from(document.querySelectorAll('button,[role="button"]')).filter(b=>/simpan/i.test(b.textContent||''));
+    btns.forEach(b=>b.addEventListener('click', ()=>{ setTimeout(saveWeeklyToHistory,100); setTimeout(()=>{try{window.close();}catch(_){}} ,250); }, {capture:true}));
+  });
+  // Auto "Kosongkan" when ?new=N
+  (function(){
+    const p=new URLSearchParams(location.search); const hasNew=p.has('new')||(location.hash||'').toLowerCase().includes('new');
+    if(!hasNew) return;
+    function tryFns(){ for(const n of ['kosongkan','clearAll','resetAll','resetForm']){ const f=window[n]; if(typeof f==='function'){ const c=window.confirm; window.confirm=()=>true; try{f();} finally{window.confirm=c;} return true; } } return false; }
+    function tryBtns(){ const c=Array.from(document.querySelectorAll('button,[role="button"],a')).filter(el=>/\b(kosongkan|hapus\s*semua|clear)\b/i.test(el.textContent||'')); if(c.length){ const C=window.confirm; window.confirm=()=>true; try{c[0].click();} finally{window.confirm=C;} return true; } return false; }
+    window.addEventListener('DOMContentLoaded', ()=>{ setTimeout(()=>{ if(!tryFns()) tryBtns(); }, 350); }, {once:true});
+  })();
+})();
+</script>
+
+<!-- Injected by ChatGPT: Auto-fill 's/d' = start + 6 hari (7 hari inklusif) -->
+<script>
+(function(){
+  function toISO(d){ const x=new Date(d); return isNaN(x)?'':x.toISOString().slice(0,10); }
+  function addDays(s,n){ const d=new Date(s); if(isNaN(d)) return ''; d.setDate(d.getDate()+n); return toISO(d); }
+  function wirePeriodAutoEnd(){
+    var ps = document.getElementById('periodStart');
+    var pe = document.getElementById('periodEnd');
+    if(!ps || !pe) return;
+    function update(){
+      const start = ps.value;
+      if(!start){ pe.value=''; return; }
+      // +6 hari → periode 7 hari inklusif
+      const end = addDays(start, 6);
+      if (end) pe.value = end;
+    }
+    ps.addEventListener('change', update);
+    ps.addEventListener('input', update);
+    // Prefill on load if start ada & end kosong
+    if (ps.value && (!pe.value || pe.value < ps.value)) update();
+  }
+  window.addEventListener('DOMContentLoaded', function(){ setTimeout(wirePeriodAutoEnd, 50); }, {once:true});
+})();
+</script>
+
+
+<!-- Injected by ChatGPT: Per-periode snapshot save & restore (?hist=YYYY-MM-DD) -->
+<script>
+(function(){
+  const KEY_ROWS='upah20_rows', KEY_RATES='upah20_classRates', KEY_THRESH='upah20_beras_threshold', KEY_AMT='upah20_beras_amount';
+  const KEY_HISTORY='upah20_period_history_v2';
+  const SNAP_PREFIX='upah20_period_rows_v1:'; // + periodeMulai
+
+  function loadJSON(k, d){ try{return JSON.parse(localStorage.getItem(k))??d;}catch(_){return d;} }
+  function saveJSON(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+  // 1) Extend weekly save to also snapshot raw rows & settings
+  (function extendSave(){
+    const _origSaveAll = window.saveAll;
+    window.saveAll = function(){
+      try { if (typeof _origSaveAll === 'function') _origSaveAll(); } catch(e){}
+      try {
+        const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
+        const start=ps&&ps.value?ps.value:''; if(!start) return;
+        const rows = loadJSON(KEY_ROWS, []);
+        const payload = {
+          rows,
+          rates: loadJSON(KEY_RATES, {}),
+          thr: Number(localStorage.getItem(KEY_THRESH) || '3.9'),
+          amt: Number(localStorage.getItem(KEY_AMT) || '20000'),
+          periodeMulai: start,
+          periodeSelesai: pe&&pe.value?pe.value:'' ,
+          ts: Date.now()
+        };
+        saveJSON(SNAP_PREFIX + start, payload);
+
+        // Mark in history record that snapshot exists
+        const hist = loadJSON(KEY_HISTORY, []);
+        const idx = hist.findIndex(x => x.periodeMulai === start);
+        if (idx >= 0) { hist[idx].hasSnap = true; saveJSON(KEY_HISTORY, hist); }
+      } catch(e){ console.warn('Snapshot save failed', e); }
+    };
+  })();
+
+  // 2) If opened with ?hist=YYYY-MM-DD, restore that periode's snapshot into current working storage
+  (function maybeRestore(){
+    const p = new URLSearchParams(location.search);
+    const histStart = p.get('hist');
+    if (!histStart) return;
+    try {
+      const snap = loadJSON(SNAP_PREFIX + histStart, null);
+      if (!snap) return;
+      // Restore base storages
+      saveJSON(KEY_ROWS, snap.rows || []);
+      saveJSON(KEY_RATES, snap.rates || {});
+      localStorage.setItem(KEY_THRESH, String(snap.thr ?? 3.9));
+      localStorage.setItem(KEY_AMT, String(snap.amt ?? 20000));
+      // Fill period inputs
+      window.addEventListener('DOMContentLoaded', function(){
+        const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
+        if (ps) ps.value = snap.periodeMulai || '';
+        if (pe) pe.value = snap.periodeSelesai || '';
+      }, {once:true});
+    } catch(e){ console.warn('Restore snapshot failed', e); }
+  })();
+})();
+</script>
+
+</body>
+</html>
