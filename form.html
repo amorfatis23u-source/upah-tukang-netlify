@@ -1144,14 +1144,204 @@ const defaultRumahList = baseRumah
   const displayDayKeys = displayDayOrder.map(i => dayKeys[i]);
 
   const snapshotData = (typeof window !== 'undefined' && window.__UPAH_DATA__) ? window.__UPAH_DATA__ : null;
-
-  // Rule Uang Beras
   const snapshotThreshold = snapshotData && snapshotData.allowanceThreshold;
   const snapshotAmount = snapshotData && snapshotData.allowanceAmount;
-  let allowanceThreshold = snapshotThreshold !== undefined ? Number(snapshotThreshold) : Number(localStorage.getItem('upah20_beras_threshold')||'3.9');
-  let allowanceAmount = snapshotAmount !== undefined ? Number(snapshotAmount) : Number(localStorage.getItem('upah20_beras_amount')||'20000');
-  if (!Number.isFinite(allowanceThreshold)) allowanceThreshold = 3.9;
-  if (!Number.isFinite(allowanceAmount)) allowanceAmount = 20000;
+  const snapshotClassRates = snapshotData && snapshotData.classRates && typeof snapshotData.classRates === 'object' ? snapshotData.classRates : null;
+  const snapshotRumah = snapshotData && Array.isArray(snapshotData.rumah) ? snapshotData.rumah : null;
+  const snapshotRows = snapshotData && Array.isArray(snapshotData.rows) ? snapshotData.rows : null;
+
+  const STORAGE_ROOT_KEY = 'upahTukang';
+  const AUTOSAVE_DELAY = 320;
+  const clearHooks = new Set();
+  let storageRoot = readStorageRoot();
+  let activeItem = null;
+  let autosaveTimer = null;
+  const dirtyKeys = new Set();
+
+  function readStorageRoot(){
+    const raw = localStorage.getItem(STORAGE_ROOT_KEY);
+    let parsed = null;
+    if (raw){
+      try { parsed = JSON.parse(raw); } catch(_){ parsed = null; }
+    }
+    if (!parsed || typeof parsed !== 'object') parsed = {};
+    if (!Array.isArray(parsed.items)) parsed.items = [];
+    if (typeof parsed.lastNewIndex !== 'number') parsed.lastNewIndex = 0;
+    if (typeof parsed.activeId !== 'string'){
+      parsed.activeId = parsed.items.length ? parsed.items[parsed.items.length-1].id || null : null;
+    }
+    return parsed;
+  }
+  function persistStorageRoot(){
+    try {
+      localStorage.setItem(STORAGE_ROOT_KEY, JSON.stringify(storageRoot));
+    } catch (err) {
+      console.warn('Gagal menyimpan storage upahTukang', err);
+    }
+  }
+  function makeId(){
+    if (typeof crypto !== 'undefined' && crypto.randomUUID){
+      return crypto.randomUUID();
+    }
+    return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  }
+  function cloneDefaultRows(){ return structuredClone(defaultRows); }
+  function cloneDefaultRates(){ return structuredClone(defaultClassRates); }
+  function cloneDefaultRumah(){ return [...defaultRumahList]; }
+  function createDefaultItem(){
+    const now = Date.now();
+    const nextIndex = (storageRoot.lastNewIndex || 0) + 1;
+    const item = {
+      id: makeId(),
+      newIndex: nextIndex,
+      periode: '',
+      sd: '',
+      rows: cloneDefaultRows(),
+      classRates: cloneDefaultRates(),
+      rumah: cloneDefaultRumah(),
+      allowanceThreshold: 3.9,
+      allowanceAmount: 20000,
+      createdAt: now,
+      updatedAt: now
+    };
+    storageRoot.lastNewIndex = Math.max(storageRoot.lastNewIndex || 0, nextIndex);
+    return item;
+  }
+  function migrateLegacyIfNeeded(){
+    if (Array.isArray(storageRoot.items) && storageRoot.items.length) return;
+    const legacyRowsRaw = localStorage.getItem('upah20_rows');
+    const legacyRatesRaw = localStorage.getItem('upah20_classRates');
+    const legacyRumahRaw = localStorage.getItem('upah20_rumah');
+    const legacyPeriodStart = localStorage.getItem('upah20_periodStart');
+    const legacyPeriodEnd = localStorage.getItem('upah20_periodEnd');
+    const legacyThreshold = localStorage.getItem('upah20_beras_threshold');
+    const legacyAmount = localStorage.getItem('upah20_beras_amount');
+    if (!legacyRowsRaw && !legacyRatesRaw && !legacyRumahRaw && !legacyPeriodStart && !legacyPeriodEnd && !legacyThreshold && !legacyAmount) return;
+    const item = createDefaultItem();
+    try {
+      const parsed = JSON.parse(legacyRowsRaw);
+      if (Array.isArray(parsed) && parsed.length) item.rows = parsed;
+    } catch(_){ }
+    try {
+      const parsed = JSON.parse(legacyRatesRaw);
+      if (parsed && typeof parsed === 'object') item.classRates = parsed;
+    } catch(_){ }
+    try {
+      const parsed = JSON.parse(legacyRumahRaw);
+      if (Array.isArray(parsed) && parsed.length) item.rumah = parsed;
+    } catch(_){ }
+    if (legacyPeriodStart) item.periode = legacyPeriodStart;
+    if (legacyPeriodEnd) item.sd = legacyPeriodEnd;
+    const thr = Number(legacyThreshold || '3.9');
+    if (Number.isFinite(thr)) item.allowanceThreshold = thr;
+    const amt = Number(legacyAmount || '20000');
+    if (Number.isFinite(amt)) item.allowanceAmount = amt;
+    storageRoot.items.push(item);
+    storageRoot.activeId = item.id;
+    persistStorageRoot();
+  }
+  function selectActiveItemById(requestedId){
+    let target = null;
+    if (requestedId){
+      target = storageRoot.items.find(it => it && it.id === requestedId) || null;
+    }
+    if (!target && typeof storageRoot.activeId === 'string'){
+      target = storageRoot.items.find(it => it && it.id === storageRoot.activeId) || null;
+    }
+    if (!target && storageRoot.items.length){
+      target = storageRoot.items[storageRoot.items.length-1];
+    }
+    if (!target){
+      target = createDefaultItem();
+      storageRoot.items.push(target);
+    }
+    storageRoot.activeId = target.id;
+    persistStorageRoot();
+    return target;
+  }
+  function createNewItemFromDefaults(newIndexOverride){
+    const item = createDefaultItem();
+    if (Number.isFinite(newIndexOverride)){
+      item.newIndex = newIndexOverride;
+      storageRoot.lastNewIndex = Math.max(storageRoot.lastNewIndex || 0, newIndexOverride);
+    }
+    storageRoot.items.push(item);
+    storageRoot.activeId = item.id;
+    persistStorageRoot();
+    return item;
+  }
+  function scheduleAutosave(reason){
+    if (reason) dirtyKeys.add(reason);
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(()=>{
+      autosaveTimer = null;
+      flushAutosave();
+    }, AUTOSAVE_DELAY);
+  }
+  function flushAutosave(){
+    if (!activeItem) return;
+    activeItem.updatedAt = Date.now();
+    storageRoot.activeId = activeItem.id;
+    persistStorageRoot();
+    dirtyKeys.clear();
+  }
+  function flushAutosaveNow(){
+    if (autosaveTimer){
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+    }
+    if (dirtyKeys.size) flushAutosave();
+  }
+  function save(key, val){
+    if (!activeItem) return;
+    if (key === 'rows' && val){
+      if (activeItem.rows !== val) activeItem.rows = val;
+    } else if (key === 'classRates' && val){
+      if (activeItem.classRates !== val) activeItem.classRates = val;
+    } else if (key === 'rumah' && val){
+      if (activeItem.rumah !== val) activeItem.rumah = val;
+    }
+    scheduleAutosave(key);
+  }
+  function runClearHooks(){
+    clearHooks.forEach(fn => {
+      try { fn(activeItem); } catch(err){ console.warn('Clear hook error', err); }
+    });
+  }
+  function registerClearHook(fn){
+    if (typeof fn !== 'function') return ()=>{};
+    clearHooks.add(fn);
+    return ()=>clearHooks.delete(fn);
+  }
+  function toISODate(d){
+    if (!(d instanceof Date)) d = new Date(d);
+    if (Number.isNaN(d.getTime())) return '';
+    const month = String(d.getMonth()+1).padStart(2,'0');
+    const date = String(d.getDate()).padStart(2,'0');
+    return `${d.getFullYear()}-${month}-${date}`;
+  }
+  function todayISO(){ return toISODate(new Date()); }
+  function addDaysISO(start, days){
+    const d = new Date(start);
+    if (Number.isNaN(d.getTime())) return '';
+    d.setDate(d.getDate()+days);
+    return toISODate(d);
+  }
+  function updatePeriod(start, end, opts){
+    if (!activeItem) return;
+    const s = start || '';
+    const e = end || '';
+    let changed = false;
+    if (activeItem.periode !== s){ activeItem.periode = s; changed = true; }
+    if (activeItem.sd !== e){ activeItem.sd = e; changed = true; }
+    if (changed && !(opts && opts.skipAutosave)){ scheduleAutosave('period'); }
+  }
+  function syncPeriodInputs(){
+    const s = document.getElementById('periodStart');
+    const e = document.getElementById('periodEnd');
+    if (s) s.value = activeItem ? (activeItem.periode || '') : '';
+    if (e) e.value = activeItem ? (activeItem.sd || '') : '';
+  }
 
   // Default daftar pekerja
   const defaultRows = [
@@ -1212,17 +1402,110 @@ const defaultRumahList = baseRumah
     {nama:'Akbar', kelas:'Kenek', group:'Toro', rumah:['','','','','','',''], ket:''}
   ];
 
+  window.__upahRegisterClearHook = registerClearHook;
+  window.__queueUpahAutosave = scheduleAutosave;
+  window.__flushUpahAutosave = flushAutosaveNow;
+  window.__getUpahActiveItem = function(){ return activeItem; };
+
+  registerClearHook(function(){
+    updatePeriod('', '');
+    syncPeriodInputs();
+  });
+
+  migrateLegacyIfNeeded();
+
+  (function initActiveItem(){
+    const params = new URLSearchParams(location.search);
+    const hasNewParam = params.has('new');
+    const newParamRaw = hasNewParam ? params.get('new') : null;
+    const requestedId = params.get('id');
+    if (hasNewParam){
+      const newIdx = Number(newParamRaw);
+      activeItem = createNewItemFromDefaults(Number.isFinite(newIdx) ? newIdx : undefined);
+      const startIso = todayISO();
+      const endIso = addDaysISO(startIso, 6);
+      activeItem.rows = cloneDefaultRows();
+      activeItem.classRates = cloneDefaultRates();
+      activeItem.rumah = cloneDefaultRumah();
+      activeItem.allowanceThreshold = 3.9;
+      activeItem.allowanceAmount = 20000;
+      activeItem.periode = startIso;
+      activeItem.sd = endIso;
+      activeItem.createdAt = Date.now();
+      activeItem.updatedAt = activeItem.createdAt;
+      scheduleAutosave('new');
+    } else {
+      activeItem = selectActiveItemById(requestedId);
+      if (requestedId && activeItem){
+        activeItem.updatedAt = Date.now();
+        persistStorageRoot();
+      }
+    }
+  })();
+
+  if (!activeItem){
+    activeItem = createDefaultItem();
+    storageRoot.items.push(activeItem);
+    storageRoot.activeId = activeItem.id;
+    persistStorageRoot();
+  }
+
+  let initialMutated = false;
+  if (!activeItem.classRates || typeof activeItem.classRates !== 'object'){
+    activeItem.classRates = cloneDefaultRates();
+    initialMutated = true;
+  }
+  if (!Array.isArray(activeItem.rumah) || !activeItem.rumah.length){
+    activeItem.rumah = cloneDefaultRumah();
+    initialMutated = true;
+  }
+  if (!Array.isArray(activeItem.rows) || !activeItem.rows.length){
+    activeItem.rows = cloneDefaultRows();
+    initialMutated = true;
+  }
+  if (snapshotClassRates){
+    activeItem.classRates = structuredClone(snapshotClassRates);
+    initialMutated = true;
+  }
+  if (snapshotRumah){
+    activeItem.rumah = structuredClone(snapshotRumah);
+    initialMutated = true;
+  }
+  if (snapshotRows){
+    activeItem.rows = structuredClone(snapshotRows);
+    initialMutated = true;
+  }
+
+  let classRates = activeItem.classRates;
+  let rumah = activeItem.rumah;
+  let rows = activeItem.rows;
+  rows.forEach(r=>{ if(r.bonus===undefined) { r.bonus=''; initialMutated = true; } });
+
+  let allowanceThreshold = snapshotThreshold !== undefined ? Number(snapshotThreshold) : Number(activeItem.allowanceThreshold ?? 3.9);
+  if (!Number.isFinite(allowanceThreshold)) allowanceThreshold = 3.9;
+  if (activeItem.allowanceThreshold !== allowanceThreshold){ activeItem.allowanceThreshold = allowanceThreshold; initialMutated = true; }
+  let allowanceAmount = snapshotAmount !== undefined ? Number(snapshotAmount) : Number(activeItem.allowanceAmount ?? 20000);
+  if (!Number.isFinite(allowanceAmount)) allowanceAmount = 20000;
+  if (activeItem.allowanceAmount !== allowanceAmount){ activeItem.allowanceAmount = allowanceAmount; initialMutated = true; }
+
+  if (initialMutated){
+    activeItem.updatedAt = Date.now();
+    persistStorageRoot();
+  }
+
   // ===== Storage helpers =====
   function rp(n){ n=Number(n||0); return 'Rp '+n.toLocaleString('id-ID'); }
   function fmtHari(h){ return (Math.round(h*10)/10).toString().replace(/\\.0$/,''); }
-  function load(key){ try{return JSON.parse(localStorage.getItem('upah20_'+key));}catch(e){return null;} }
-  function save(key,val){ localStorage.setItem('upah20_'+key, JSON.stringify(val)); }
   async function saveAll(){
     window.__upahLastSnapshotMeta = null;
     try {
-      save('rows',rows); save('classRates',classRates); save('rumah',rumah);
-      localStorage.setItem('upah20_beras_threshold', String(allowanceThreshold));
-      localStorage.setItem('upah20_beras_amount', String(allowanceAmount));
+      save('rows', rows); save('classRates', classRates); save('rumah', rumah);
+      if (activeItem){
+        activeItem.allowanceThreshold = allowanceThreshold;
+        activeItem.allowanceAmount = allowanceAmount;
+        scheduleAutosave('allowance');
+        flushAutosaveNow();
+      }
       const result = await exportHTMLSnapshot();
       const snapshotMeta = (result && result.ok)
         ? { snapshotKey: result.key, snapshotCreatedAt: result.createdAt }
@@ -1263,29 +1546,41 @@ const defaultRumahList = baseRumah
 
   function resetAll(){
     if(!confirm('Reset semua data ke default?')) return;
-    localStorage.removeItem('upah20_rows'); localStorage.removeItem('upah20_classRates'); localStorage.removeItem('upah20_rumah');
-    localStorage.removeItem('upah20_beras_threshold'); localStorage.removeItem('upah20_beras_amount');
-    rows=structuredClone(defaultRows); classRates=structuredClone(defaultClassRates); rumah=[...defaultRumahList];
-    allowanceThreshold = 3.9; allowanceAmount = 20000;
-    bootRatesUI(); renderRumah(); rerender(); bootBerasUI();
+    classRates = activeItem.classRates = cloneDefaultRates();
+    rumah = activeItem.rumah = cloneDefaultRumah();
+    allowanceThreshold = activeItem.allowanceThreshold = 3.9;
+    allowanceAmount = activeItem.allowanceAmount = 20000;
+    restoreDefaultRows();
+    save('classRates', classRates);
+    save('rumah', rumah);
+    scheduleAutosave('allowance');
+    bootRatesUI(); renderRumah(); bootBerasUI();
+    syncPeriodInputs();
   }
-  function restoreDefaultRows(){ rows=structuredClone(defaultRows); rerender(); save('rows',rows); }
+  function restoreDefaultRows(){
+    if (!activeItem) return;
+    rows = activeItem.rows = cloneDefaultRows();
+    rows.forEach(r=>{ if(r.bonus===undefined) r.bonus=''; });
+    rerender();
+    save('rows', rows);
+    runClearHooks();
+  }
 
-  const snapshotClassRates = snapshotData && snapshotData.classRates && typeof snapshotData.classRates === 'object' ? snapshotData.classRates : null;
-  const snapshotRumah = snapshotData && Array.isArray(snapshotData.rumah) ? snapshotData.rumah : null;
-  const snapshotRows = snapshotData && Array.isArray(snapshotData.rows) ? snapshotData.rows : null;
-
-  let classRates = snapshotClassRates ? structuredClone(snapshotClassRates) : (load('classRates') || structuredClone(defaultClassRates));
-  let rumah = snapshotRumah ? structuredClone(snapshotRumah) : (load('rumah') || [...defaultRumahList]);
-  let rows = snapshotRows ? structuredClone(snapshotRows) : (load('rows') || structuredClone(defaultRows));
-  if(!Array.isArray(rows) || rows.length===0){ rows = structuredClone(defaultRows); }
-  rows.forEach(r=>{ if(r.bonus===undefined) r.bonus=''; });
   let searchName = (localStorage.getItem('upah20_search')||'');
   let viewMode = localStorage.getItem('upah20_viewMode') || (window.innerWidth<=900 ? 'cards' : 'table');
-
   // ===== UI logic =====
-  function restoreDefaultRates(){ classRates = structuredClone(defaultClassRates); bootRatesUI(); rerender(); }
-  function restoreDefaultRumah(){ rumah = [...defaultRumahList]; renderRumah(); rerender(); save('rumah',rumah); }
+  function restoreDefaultRates(){
+    classRates = activeItem.classRates = cloneDefaultRates();
+    bootRatesUI();
+    rerender();
+    save('classRates', classRates);
+  }
+  function restoreDefaultRumah(){
+    rumah = activeItem.rumah = cloneDefaultRumah();
+    renderRumah();
+    rerender();
+    save('rumah',rumah);
+  }
 
   function bootRatesUI(){
     document.getElementById('rateSenior').value = classRates['Senior']||0;
@@ -1298,11 +1593,16 @@ const defaultRumahList = baseRumah
     document.getElementById('berasInput').value = allowanceAmount || 0;
   }
   function updateBerasRule(){
-    const t = Number(document.getElementById('thresholdInput').value||0);
-    const a = Number(document.getElementById('berasInput').value||0);
+    let t = Number(document.getElementById('thresholdInput').value||0);
+    let a = Number(document.getElementById('berasInput').value||0);
+    if (!Number.isFinite(t)) t = 0;
+    if (!Number.isFinite(a)) a = 0;
     allowanceThreshold = t; allowanceAmount = a;
-    localStorage.setItem('upah20_beras_threshold', String(t));
-    localStorage.setItem('upah20_beras_amount', String(a));
+    if (activeItem){
+      activeItem.allowanceThreshold = t;
+      activeItem.allowanceAmount = a;
+      scheduleAutosave('allowance');
+    }
     rerender();
   }
 
@@ -1320,7 +1620,11 @@ const defaultRumahList = baseRumah
     if(!v) return; if(!rumah.includes(v)) rumah.push(v);
     el.value=''; renderRumah(); rerender(); save('rumah',rumah);
   }
-  function clearRumah(){ if(!confirm('Kosongkan semua rumah?')) return; rumah=[]; renderRumah(); rerender(); save('rumah',rumah); }
+  function clearRumah(){
+    if(!confirm('Kosongkan semua rumah?')) return;
+    rumah = activeItem.rumah = [];
+    renderRumah(); rerender(); save('rumah',rumah);
+  }
 
   function addWorker(){
     rows.push({ nama:'', kelas:'Tukang', group:'', rumah:['','','','','','',''], ket:'' });
@@ -1709,8 +2013,8 @@ const upahPokok = hari * rate;
         generatedAt: new Date().toISOString(),
         page: location.href,
         period: {
-          start: document.getElementById('periodStart')?.value || null,
-          end: document.getElementById('periodEnd')?.value || null,
+          start: activeItem ? (activeItem.periode || null) : null,
+          end: activeItem ? (activeItem.sd || null) : null,
         },
         rowsCount: Array.isArray(rows) ? rows.length : 0,
       };
@@ -2136,16 +2440,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 <script>
-  // === Periode Tanggal (persist to localStorage) ===
+  // === Periode Tanggal (sink to active item storage) ===
   function bootPeriodUI(){
     try{
       var s = document.getElementById('periodStart');
       var e = document.getElementById('periodEnd');
       if(!s || !e) return;
-      s.value = localStorage.getItem('upah20_periodStart') || '';
-      e.value = localStorage.getItem('upah20_periodEnd') || '';
-      s.addEventListener('change', function(){ localStorage.setItem('upah20_periodStart', s.value || ''); });
-      e.addEventListener('change', function(){ localStorage.setItem('upah20_periodEnd', e.value || ''); });
+      syncPeriodInputs();
+      function pushPeriod(){
+        updatePeriod(s.value || '', e.value || '');
+      }
+      s.addEventListener('change', pushPeriod);
+      s.addEventListener('input', pushPeriod);
+      e.addEventListener('change', pushPeriod);
+      e.addEventListener('input', pushPeriod);
     }catch(_){}
   }
   // hook into existing boot flows after DOM ready
@@ -2164,8 +2472,8 @@ document.addEventListener('DOMContentLoaded', () => {
         var s = document.getElementById('periodStart');
         var e = document.getElementById('periodEnd');
         if(s && e){
-          localStorage.setItem('upah20_periodStart', s.value || '');
-          localStorage.setItem('upah20_periodEnd', e.value || '');
+          updatePeriod(s.value || '', e.value || '');
+          flushAutosaveNow();
         }
       }catch(_){}
       if(typeof _origSaveAll === 'function'){ return _origSaveAll.apply(this, arguments); }
@@ -2342,15 +2650,18 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- Injected: Weekly summary save + auto-close on Save -->
 <script>
 (function(){
-  const KEY_ROWS='upah20_rows', KEY_RATES='upah20_classRates', KEY_THRESH='upah20_beras_threshold', KEY_AMT='upah20_beras_amount', KEY_HISTORY='upah20_period_history_v2';
+  const KEY_HISTORY='upah20_period_history_v2';
   if (typeof window !== 'undefined' && window.__upahLastSnapshotMeta === undefined){ window.__upahLastSnapshotMeta = null; }
   function loadJSON(k, d){ try{return JSON.parse(localStorage.getItem(k))??d;}catch(_){return d;} }
+  function saveJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } }
   function computeTotals(){
-    const rows=loadJSON(KEY_ROWS,[])||[], classRates=loadJSON(KEY_RATES,{"Senior":145000,"Tukang":130000,"Kenek":120000});
-    const thr=Number(localStorage.getItem(KEY_THRESH)||'3.9'), amt=Number(localStorage.getItem(KEY_AMT)||'20000');
+    const rowsSrc = Array.isArray(activeItem && activeItem.rows) ? activeItem.rows : [];
+    const ratesSrc = (activeItem && activeItem.classRates) ? activeItem.classRates : classRates;
+    const thr = Number(activeItem && activeItem.allowanceThreshold !== undefined ? activeItem.allowanceThreshold : allowanceThreshold);
+    const amt = Number(activeItem && activeItem.allowanceAmount !== undefined ? activeItem.allowanceAmount : allowanceAmount);
     let pekerja=0,sumHari=0,sumPokok=0,sumBeras=0,sumBonus=0,sumTotal=0;
-    for(const r of rows){
-      const rate=Number(classRates[r.kelas]||0);
+    for(const r of rowsSrc){
+      const rate=Number(ratesSrc[r.kelas]||0);
       const hari=(r.rumah||[]).reduce((a,b)=>{ if(!b) return a; const half=(b==='1/2 Lain') || /^\s*1\/2\s+/.test(b); return a+(half?0.5:1); },0);
       const pokok=hari*rate, beras=(hari>thr?amt:0), bonus=Number((r.bonus??'').toString().replace(/[^\d]/g,''))||0;
       pekerja++; sumHari+=hari; sumPokok+=pokok; sumBeras+=beras; sumBonus+=bonus; sumTotal+=pokok+beras+bonus;
@@ -2361,8 +2672,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function addDays(s,n){const d=new Date(s); d.setDate(d.getDate()+n); return toISO(d);}
   function saveWeeklyToHistory(extraMeta){
     const meta = (extraMeta && typeof extraMeta === 'object') ? extraMeta : null;
-    const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
-    const start=ps&&ps.value?ps.value:'', end=pe&&pe.value?pe.value:(start?addDays(start,6):'');
+    const start = activeItem ? (activeItem.periode || '') : '';
+    const end = activeItem ? (activeItem.sd || (start ? addDays(start,6) : '')) : '';
     if(!start) return null;
     const t=computeTotals();
     const arr=loadJSON(KEY_HISTORY,[]);
@@ -2408,7 +2719,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if(idx>=0) arr[idx]=rec; else arr.push(rec);
-    localStorage.setItem(KEY_HISTORY, JSON.stringify(arr));
+    saveJSON(KEY_HISTORY, arr);
     return rec;
   }
   window.__saveWeeklyToHistory = saveWeeklyToHistory;
@@ -2471,12 +2782,11 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- Injected by ChatGPT: Per-periode snapshot save & restore (?hist=YYYY-MM-DD) -->
 <script>
 (function(){
-  const KEY_ROWS='upah20_rows', KEY_RATES='upah20_classRates', KEY_THRESH='upah20_beras_threshold', KEY_AMT='upah20_beras_amount';
   const KEY_HISTORY='upah20_period_history_v2';
   const SNAP_PREFIX='upah20_period_rows_v1:'; // + periodeMulai
 
   function loadJSON(k, d){ try{return JSON.parse(localStorage.getItem(k))??d;}catch(_){return d;} }
-  function saveJSON(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+  function saveJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } }
 
   // 1) Extend weekly save to also snapshot raw rows & settings
   (function extendSave(){
@@ -2485,16 +2795,15 @@ document.addEventListener('DOMContentLoaded', () => {
       let res;
       try { if (typeof _origSaveAll === 'function') res = await _origSaveAll.apply(this, args); } catch(e){}
       try {
-        const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
-        const start=ps&&ps.value?ps.value:''; if(!start) return res;
-        const rows = loadJSON(KEY_ROWS, []);
+        const start = activeItem ? (activeItem.periode || '') : '';
+        if(!start) return res;
         const payload = {
-          rows,
-          rates: loadJSON(KEY_RATES, {}),
-          thr: Number(localStorage.getItem(KEY_THRESH) || '3.9'),
-          amt: Number(localStorage.getItem(KEY_AMT) || '20000'),
+          rows: Array.isArray(activeItem && activeItem.rows) ? activeItem.rows : [],
+          rates: (activeItem && activeItem.classRates) ? activeItem.classRates : {},
+          thr: Number(activeItem && activeItem.allowanceThreshold !== undefined ? activeItem.allowanceThreshold : allowanceThreshold),
+          amt: Number(activeItem && activeItem.allowanceAmount !== undefined ? activeItem.allowanceAmount : allowanceAmount),
           periodeMulai: start,
-          periodeSelesai: pe&&pe.value?pe.value:'' ,
+          periodeSelesai: activeItem ? (activeItem.sd || '') : '',
           ts: Date.now()
         };
         saveJSON(SNAP_PREFIX + start, payload);
@@ -2542,17 +2851,26 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const snap = loadJSON(SNAP_PREFIX + histStart, null);
       if (!snap) return;
-      // Restore base storages
-      saveJSON(KEY_ROWS, snap.rows || []);
-      saveJSON(KEY_RATES, snap.rates || {});
-      localStorage.setItem(KEY_THRESH, String(snap.thr ?? 3.9));
-      localStorage.setItem(KEY_AMT, String(snap.amt ?? 20000));
-      // Fill period inputs
-      window.addEventListener('DOMContentLoaded', function(){
-        const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
-        if (ps) ps.value = snap.periodeMulai || '';
-        if (pe) pe.value = snap.periodeSelesai || '';
-      }, {once:true});
+      if (!activeItem) return;
+      activeItem.rows = Array.isArray(snap.rows) ? structuredClone(snap.rows) : [];
+      activeItem.classRates = snap.rates && typeof snap.rates === 'object' ? structuredClone(snap.rates) : cloneDefaultRates();
+      activeItem.allowanceThreshold = Number(snap.thr ?? 3.9);
+      activeItem.allowanceAmount = Number(snap.amt ?? 20000);
+      activeItem.periode = snap.periodeMulai || '';
+      activeItem.sd = snap.periodeSelesai || '';
+      rows = activeItem.rows;
+      classRates = activeItem.classRates;
+      allowanceThreshold = activeItem.allowanceThreshold;
+      allowanceAmount = activeItem.allowanceAmount;
+      rumah = activeItem.rumah = Array.isArray(activeItem.rumah) ? activeItem.rumah : cloneDefaultRumah();
+      rows.forEach(r=>{ if(r.bonus===undefined) r.bonus=''; });
+      bootRatesUI(); renderRumah(); bootBerasUI();
+      syncPeriodInputs();
+      rerender();
+      save('classRates', classRates);
+      save('rumah', rumah);
+      save('rows', rows);
+      scheduleAutosave('allowance');
     } catch(e){ console.warn('Restore snapshot failed', e); }
   })();
 })();
