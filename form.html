@@ -976,6 +976,9 @@ tbody td { padding-top: 2px !important; }
 </span>
   </div>
 <button class="btn" onclick="try{saveAll&&saveAll()}catch(_){ if (typeof save==='function') save('rows', window.rows); else alert('Fungsi simpan tidak tersedia'); }">Simpan</button>
+<div class="muted" style="flex-basis:100%; font-size:11px; margin-top:4px;">
+  Menekan "Simpan" akan mengunduh berkas HTML yang dapat dibuka kembali untuk memulihkan data.
+</div>
   <button class="btn" onclick="window.print()">Cetak</button>
   <button class="btn" onclick="try{downloadCSV&&downloadCSV()}catch(_){alert('downloadCSV tidak ditemukan')}">Unduh CSV</button>
   <button class="btn" onclick="try{downloadJSON&&downloadJSON()}catch(_){alert('downloadJSON tidak ditemukan')}">Unduh JSON</button>
@@ -1140,9 +1143,15 @@ const defaultRumahList = baseRumah
   const displayDayOrder = [6,0,1,2,3,4,5];
   const displayDayKeys = displayDayOrder.map(i => dayKeys[i]);
 
+  const snapshotData = (typeof window !== 'undefined' && window.__UPAH_DATA__) ? window.__UPAH_DATA__ : null;
+
   // Rule Uang Beras
-  let allowanceThreshold = Number(localStorage.getItem('upah20_beras_threshold')||'3.9');
-  let allowanceAmount = Number(localStorage.getItem('upah20_beras_amount')||'20000');
+  const snapshotThreshold = snapshotData && snapshotData.allowanceThreshold;
+  const snapshotAmount = snapshotData && snapshotData.allowanceAmount;
+  let allowanceThreshold = snapshotThreshold !== undefined ? Number(snapshotThreshold) : Number(localStorage.getItem('upah20_beras_threshold')||'3.9');
+  let allowanceAmount = snapshotAmount !== undefined ? Number(snapshotAmount) : Number(localStorage.getItem('upah20_beras_amount')||'20000');
+  if (!Number.isFinite(allowanceThreshold)) allowanceThreshold = 3.9;
+  if (!Number.isFinite(allowanceAmount)) allowanceAmount = 20000;
 
   // Default daftar pekerja
   const defaultRows = [
@@ -1208,10 +1217,13 @@ const defaultRumahList = baseRumah
   function fmtHari(h){ return (Math.round(h*10)/10).toString().replace(/\\.0$/,''); }
   function load(key){ try{return JSON.parse(localStorage.getItem('upah20_'+key));}catch(e){return null;} }
   function save(key,val){ localStorage.setItem('upah20_'+key, JSON.stringify(val)); }
-  function saveAll(){ save('rows',rows); save('classRates',classRates); save('rumah',rumah);
+  function saveAll(){
+    save('rows',rows); save('classRates',classRates); save('rumah',rumah);
     localStorage.setItem('upah20_beras_threshold', String(allowanceThreshold));
     localStorage.setItem('upah20_beras_amount', String(allowanceAmount));
-    alert('Tersimpan.'); }
+    exportHTMLSnapshot();
+    alert('Tersimpan dan diunduh sebagai HTML.');
+  }
 
   function resetAll(){
     if(!confirm('Reset semua data ke default?')) return;
@@ -1223,9 +1235,13 @@ const defaultRumahList = baseRumah
   }
   function restoreDefaultRows(){ rows=structuredClone(defaultRows); rerender(); save('rows',rows); }
 
-  let classRates = load('classRates') || structuredClone(defaultClassRates);
-  let rumah = load('rumah') || [...defaultRumahList];
-  let rows = load('rows') || structuredClone(defaultRows);
+  const snapshotClassRates = snapshotData && snapshotData.classRates && typeof snapshotData.classRates === 'object' ? snapshotData.classRates : null;
+  const snapshotRumah = snapshotData && Array.isArray(snapshotData.rumah) ? snapshotData.rumah : null;
+  const snapshotRows = snapshotData && Array.isArray(snapshotData.rows) ? snapshotData.rows : null;
+
+  let classRates = snapshotClassRates ? structuredClone(snapshotClassRates) : (load('classRates') || structuredClone(defaultClassRates));
+  let rumah = snapshotRumah ? structuredClone(snapshotRumah) : (load('rumah') || [...defaultRumahList]);
+  let rows = snapshotRows ? structuredClone(snapshotRows) : (load('rows') || structuredClone(defaultRows));
   if(!Array.isArray(rows) || rows.length===0){ rows = structuredClone(defaultRows); }
   rows.forEach(r=>{ if(r.bonus===undefined) r.bonus=''; });
   let searchName = (localStorage.getItem('upah20_search')||'');
@@ -1627,6 +1643,33 @@ const upahPokok = hari * rate;
       a.remove();
     }
     setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+
+  function exportHTMLSnapshot(){
+    try{
+      const payload = {
+        rows,
+        classRates,
+        rumah,
+        allowanceThreshold,
+        allowanceAmount
+      };
+      const serialized = JSON.stringify(payload).replace(/</g, '\\u003C');
+      const doc = document;
+      const docType = doc.doctype
+        ? `<!DOCTYPE ${doc.doctype.name}${doc.doctype.publicId ? ` PUBLIC "${doc.doctype.publicId}"` : ''}${!doc.doctype.publicId && doc.doctype.systemId ? ' SYSTEM' : ''}${doc.doctype.systemId ? ` "${doc.doctype.systemId}"` : ''}>`
+        : '<!doctype html>';
+      const html = doc.documentElement.outerHTML;
+      const injection = `<script>window.__UPAH_DATA__ = ${serialized};</` + `script>`;
+      const bodyOpen = html.match(/<body[^>]*>/i);
+      const htmlWithData = bodyOpen
+        ? html.replace(bodyOpen[0], `${bodyOpen[0]}${injection}`)
+        : (html.includes('</body>') ? html.replace('</body>', `${injection}</body>`) : `${html}${injection}`);
+      _downloadBlob(`${docType}\n${htmlWithData}`, 'text/html;charset=utf-8', _timestampName('upah7hari_snapshot', 'html'));
+    }catch(err){
+      console.error(err);
+      alert('Gagal membuat snapshot HTML: ' + err.message);
+    }
   }
 
   // Export JSON (raw data + settings)
