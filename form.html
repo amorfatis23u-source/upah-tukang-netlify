@@ -1218,11 +1218,23 @@ const defaultRumahList = baseRumah
   function load(key){ try{return JSON.parse(localStorage.getItem('upah20_'+key));}catch(e){return null;} }
   function save(key,val){ localStorage.setItem('upah20_'+key, JSON.stringify(val)); }
   async function saveAll(){
+    window.__upahLastSnapshotMeta = null;
     try {
       save('rows',rows); save('classRates',classRates); save('rumah',rumah);
       localStorage.setItem('upah20_beras_threshold', String(allowanceThreshold));
       localStorage.setItem('upah20_beras_amount', String(allowanceAmount));
       const result = await exportHTMLSnapshot();
+      const snapshotMeta = (result && result.ok)
+        ? { snapshotKey: result.key, snapshotCreatedAt: result.createdAt }
+        : null;
+      window.__upahLastSnapshotMeta = snapshotMeta;
+      try {
+        if (typeof window.__saveWeeklyToHistory === 'function') {
+          window.__saveWeeklyToHistory(snapshotMeta || undefined);
+        }
+      } catch(historyError){
+        console.warn('Gagal memperbarui riwayat periode', historyError);
+      }
       if (result && result.ok) {
         alert('Snapshot tersimpan ke Netlify. Unduh cadangan lokal tersedia jika diperlukan.');
       } else if (result && result.fallback) {
@@ -1233,6 +1245,14 @@ const defaultRumahList = baseRumah
         alert(message);
       }
     } catch (err) {
+      window.__upahLastSnapshotMeta = null;
+      try {
+        if (typeof window.__saveWeeklyToHistory === 'function') {
+          window.__saveWeeklyToHistory();
+        }
+      } catch(historyError){
+        console.warn('Gagal memperbarui riwayat periode', historyError);
+      }
       console.error(err);
       alert('Terjadi kesalahan saat menyimpan: ' + err.message);
     }
@@ -2320,6 +2340,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script>
 (function(){
   const KEY_ROWS='upah20_rows', KEY_RATES='upah20_classRates', KEY_THRESH='upah20_beras_threshold', KEY_AMT='upah20_beras_amount', KEY_HISTORY='upah20_period_history_v2';
+  if (typeof window !== 'undefined' && window.__upahLastSnapshotMeta === undefined){ window.__upahLastSnapshotMeta = null; }
   function loadJSON(k, d){ try{return JSON.parse(localStorage.getItem(k))??d;}catch(_){return d;} }
   function computeTotals(){
     const rows=loadJSON(KEY_ROWS,[])||[], classRates=loadJSON(KEY_RATES,{"Senior":145000,"Tukang":130000,"Kenek":120000});
@@ -2335,28 +2356,77 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function toISO(d){const x=new Date(d); return isNaN(x)?'':x.toISOString().slice(0,10);}
   function addDays(s,n){const d=new Date(s); d.setDate(d.getDate()+n); return toISO(d);}
-  function saveWeeklyToHistory(){
+  function saveWeeklyToHistory(extraMeta){
+    const meta = (extraMeta && typeof extraMeta === 'object') ? extraMeta : null;
     const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
     const start=ps&&ps.value?ps.value:'', end=pe&&pe.value?pe.value:(start?addDays(start,6):'');
-    if(!start) return;
+    if(!start) return null;
     const t=computeTotals();
-    const rec={periodeMulai:start,periodeSelesai:end,pekerja:t.pekerja,sumHari:Math.round(t.sumHari*10)/10,sumPokok:t.sumPokok,sumBeras:t.sumBeras,sumBonus:t.sumBonus,sumTotal:t.sumTotal,ts:Date.now()};
-    const arr=loadJSON(KEY_HISTORY,[]); const idx=arr.findIndex(x=>x.periodeMulai===rec.periodeMulai); if(idx>=0)arr[idx]=rec; else arr.push(rec);
+    const arr=loadJSON(KEY_HISTORY,[]);
+    const idx=arr.findIndex(x=>x && x.periodeMulai===start);
+    const prev = idx>=0 ? (arr[idx] || {}) : {};
+    const rec={
+      ...prev,
+      periodeMulai:start,
+      periodeSelesai:end,
+      pekerja:t.pekerja,
+      sumHari:Math.round(t.sumHari*10)/10,
+      sumPokok:t.sumPokok,
+      sumBeras:t.sumBeras,
+      sumBonus:t.sumBonus,
+      sumTotal:t.sumTotal,
+      ts:Date.now()
+    };
+
+    const hasField = (target, field) => !!target && Object.prototype.hasOwnProperty.call(target, field);
+
+    if (hasField(meta,'snapshotKey')){
+      if (meta.snapshotKey !== undefined) rec.snapshotKey = meta.snapshotKey;
+    } else if (prev.snapshotKey !== undefined && rec.snapshotKey === undefined){
+      rec.snapshotKey = prev.snapshotKey;
+    }
+
+    if (hasField(meta,'snapshotCreatedAt')){
+      if (meta.snapshotCreatedAt !== undefined) rec.snapshotCreatedAt = meta.snapshotCreatedAt;
+    } else if (prev.snapshotCreatedAt !== undefined && rec.snapshotCreatedAt === undefined){
+      rec.snapshotCreatedAt = prev.snapshotCreatedAt;
+    }
+
+    if (prev.hist !== undefined && rec.hist === undefined){ rec.hist = prev.hist; }
+
+    if (hasField(meta,'hasSnap')){
+      rec.hasSnap = Boolean(meta.hasSnap);
+    } else if (rec.snapshotKey){
+      rec.hasSnap = true;
+    } else if (prev.hasSnap !== undefined && rec.hasSnap === undefined){
+      rec.hasSnap = prev.hasSnap;
+    } else if (rec.hasSnap === undefined && prev.hist){
+      rec.hasSnap = true;
+    }
+
+    if(idx>=0) arr[idx]=rec; else arr.push(rec);
     localStorage.setItem(KEY_HISTORY, JSON.stringify(arr));
+    return rec;
   }
+  window.__saveWeeklyToHistory = saveWeeklyToHistory;
   // Patch saveAll if exists
   const _orig=window.saveAll;
-  window.saveAll=function(){
-    try{ if(typeof _orig==='function') _orig(); }catch(e){}
-    try{ saveWeeklyToHistory(); }catch(e){}
+  window.saveAll=async function(...args){
+    let res;
+    try{ if(typeof _orig==='function') res = await _orig.apply(this, args); }catch(e){}
+    try{ saveWeeklyToHistory(window.__upahLastSnapshotMeta); }catch(e){}
     setTimeout(function(){ try{window.close();}catch(_){}
       setTimeout(function(){ try{window.location.replace('about:blank');}catch(_){} },200);
     },150);
+    return res;
   };
   // Robust hook for any "Simpan" button
   window.addEventListener('DOMContentLoaded', function(){
     const btns=Array.from(document.querySelectorAll('button,[role="button"]')).filter(b=>/simpan/i.test(b.textContent||''));
-    btns.forEach(b=>b.addEventListener('click', ()=>{ setTimeout(saveWeeklyToHistory,100); setTimeout(()=>{try{window.close();}catch(_){}} ,250); }, {capture:true}));
+    btns.forEach(b=>b.addEventListener('click', ()=>{
+      setTimeout(()=>{ try{ saveWeeklyToHistory(window.__upahLastSnapshotMeta); }catch(_){ } },100);
+      setTimeout(()=>{try{window.close();}catch(_){}} ,250);
+    }, {capture:true}));
   });
   // Auto "Kosongkan" when ?new=N
   (function(){
@@ -2408,11 +2478,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 1) Extend weekly save to also snapshot raw rows & settings
   (function extendSave(){
     const _origSaveAll = window.saveAll;
-    window.saveAll = function(){
-      try { if (typeof _origSaveAll === 'function') _origSaveAll(); } catch(e){}
+    window.saveAll = async function(...args){
+      let res;
+      try { if (typeof _origSaveAll === 'function') res = await _origSaveAll.apply(this, args); } catch(e){}
       try {
         const ps=document.getElementById('periodStart'), pe=document.getElementById('periodEnd');
-        const start=ps&&ps.value?ps.value:''; if(!start) return;
+        const start=ps&&ps.value?ps.value:''; if(!start) return res;
         const rows = loadJSON(KEY_ROWS, []);
         const payload = {
           rows,
@@ -2425,11 +2496,25 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         saveJSON(SNAP_PREFIX + start, payload);
 
-        // Mark in history record that snapshot exists
-        const hist = loadJSON(KEY_HISTORY, []);
-        const idx = hist.findIndex(x => x.periodeMulai === start);
-        if (idx >= 0) { hist[idx].hasSnap = true; saveJSON(KEY_HISTORY, hist); }
+        const meta = (window.__upahLastSnapshotMeta && typeof window.__upahLastSnapshotMeta === 'object') ? window.__upahLastSnapshotMeta : null;
+        if (typeof window.__saveWeeklyToHistory === 'function'){
+          window.__saveWeeklyToHistory({ ...(meta || {}), hasSnap: true });
+        } else {
+          const hist = loadJSON(KEY_HISTORY, []);
+          const idx = hist.findIndex(x => x && x.periodeMulai === start);
+          if (idx >= 0){
+            const prev = hist[idx] || {};
+            hist[idx] = {
+              ...prev,
+              hasSnap: true,
+              snapshotKey: meta && meta.snapshotKey !== undefined ? meta.snapshotKey : prev.snapshotKey,
+              snapshotCreatedAt: meta && meta.snapshotCreatedAt !== undefined ? meta.snapshotCreatedAt : prev.snapshotCreatedAt
+            };
+            saveJSON(KEY_HISTORY, hist);
+          }
+        }
       } catch(e){ console.warn('Snapshot save failed', e); }
+      return res;
     };
   })();
 

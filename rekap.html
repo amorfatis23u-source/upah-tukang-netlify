@@ -50,12 +50,23 @@
     let arr=load(); const order=document.getElementById('order').value||'desc'; const tbody=document.getElementById('tbody'); tbody.innerHTML='';
     if(!arr.length){ tbody.innerHTML='<tr class="empty"><td colspan="3">Belum ada data.</td></tr>'; document.getElementById('counter').textContent='0 periode'; document.getElementById('grand').textContent='Rp 0'; return; }
     arr.sort((a,b)=> order==='desc'? b.periodeMulai.localeCompare(a.periodeMulai) : a.periodeMulai.localeCompare(b.periodeMulai));
-    let grand=0; for(const r of arr){ grand+=Number(r.sumTotal||0); const tr=document.createElement('tr'); const key = `${r.periodeMulai||''}__${r.periodeSelesai||''}`;
-tr.innerHTML = `
+    let grand=0; for(const r of arr){
+      grand+=Number(r.sumTotal||0);
+      const tr=document.createElement('tr');
+      const key = `${r.periodeMulai||''}__${r.periodeSelesai||''}`;
+      const rawSnapshotKey = typeof r.snapshotKey === 'string' ? r.snapshotKey.trim() : '';
+      const snapshotKey = rawSnapshotKey ? rawSnapshotKey : null;
+      const hasServerSnapshot = !!snapshotKey;
+      const histToken = (typeof r.hist === 'string' && r.hist) ? r.hist : (r.periodeMulai || '');
+      const fallbackLink = `form.html?hist=${encodeURIComponent(histToken)}`;
+      const linkHref = hasServerSnapshot ? `/.netlify/functions/snapshot?key=${encodeURIComponent(snapshotKey)}` : fallbackLink;
+      const sourceAttr = hasServerSnapshot ? 'server' : 'form';
+      const sourceTitle = hasServerSnapshot ? 'Snapshot tersimpan di server' : 'Data lokal (form)';
+      tr.innerHTML = `
   <td>${r.periodeMulai||''}</td>
   <td>${r.periodeSelesai||''}</td>
   <td class="right">${rp(r.sumTotal||0)}</td>
-  <td><a href='UPAH_TUKANG_7_HARI_period_calendar- Master_autosave_patched.html?hist=${encodeURIComponent(r.periodeMulai||'')}' target='_blank'>Buka Data</a></td>
+  <td><a href='${linkHref}' target='_blank' rel='noopener' data-source='${sourceAttr}' title='${sourceTitle}'>Buka Data</a></td>
   <td><button class="btnDel" data-k="${key}" title="Hapus baris ini">Hapus</button></td>
 `; tbody.appendChild(tr); }
     document.getElementById('counter').textContent=arr.length+' periode'; document.getElementById('grand').textContent=rp(grand);
@@ -259,6 +270,8 @@ async function syncToServer(keys){
       tbody.querySelectorAll('a').forEach(function(a){
         try{
           var u = new URL(a.href, location.href);
+          if (a.dataset && a.dataset.source === 'server') return;
+          if(/\/\.netlify\/functions\/snapshot/i.test(u.pathname)) return;
           if(!/form\.html$/i.test(u.pathname)){
             // assume it was the old long name; switch to form.html while preserving query (?hist=...)
             var hist = u.searchParams.get('hist');
