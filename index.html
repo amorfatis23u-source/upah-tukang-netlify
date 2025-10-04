@@ -1,21 +1,203 @@
 <!doctype html>
 <html lang="id">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Upah Tukang — Server Sync</title>
-<style>
-  body{margin:0;font:16px system-ui,Segoe UI,Roboto,Arial;background:#0b1020;color:#e8ecf1;display:grid;place-items:center;min-height:100vh;padding:24px}
-  .card{background:#111936;border:1px solid #253066;border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.25);max-width:680px;width:100%}
-  h1{margin:0 0 12px;font-size:24px}
-  p{margin:0 0 18px;color:#a7b1c5}
-  a{display:block;margin:8px 0;padding:12px 14px;border:1px solid #2a3770;border-radius:12px;color:#e8ecf1;text-decoration:none;text-align:center}
-  a:hover{background:#0f1838}
-  .hint{font-size:13px;color:#8fa3c7;margin-top:16px}
-</style>
-<div class="card">
-  <h1>Upah Tukang (Netlify Server Sync)</h1>
-  <p>Pilih halaman:</p>
-  <a href="form.html">➤ Form Input & Rekap Harian (sinkron ke server)</a>
-  <a href="rekap.html">➤ Rekap Periode (sinkron ke server)</a>
-  <div class="hint">Penyimpanan: Netlify Blobs via Functions. Offline tetap tersimpan di localStorage, lalu disinkronkan saat online.</div>
-</div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upah Tukang — Server Sync</title>
+  <link rel="stylesheet" href="styles/system.css">
+  <style>
+    header.page-hero {
+      padding: var(--space-xl) 0 var(--space-lg);
+    }
+
+    .hero-content {
+      display: grid;
+      gap: var(--space-lg);
+    }
+
+    .eyebrow {
+      font-size: 0.75rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.65);
+      font-weight: 600;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .hero-lead {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      max-width: 56ch;
+    }
+
+    .hero-lead strong {
+      color: var(--text-primary);
+    }
+
+    .cta-section {
+      padding: 0 0 var(--space-xl);
+    }
+
+    .cta-grid {
+      display: grid;
+      gap: var(--space-lg);
+    }
+
+    .cta-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+      padding: clamp(1.5rem, 4vw, 2rem);
+      background: linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 18, 32, 0.95) 100%);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .cta-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(140% 120% at 100% 0%, rgba(249, 115, 22, 0.22), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: -1;
+    }
+
+    .cta-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(249, 115, 22, 0.4);
+      box-shadow: 0 28px 60px rgba(8, 15, 29, 0.6);
+    }
+
+    .cta-card:hover::after {
+      opacity: 1;
+    }
+
+    .cta-icon {
+      width: 3.5rem;
+      height: 3.5rem;
+      border-radius: 1rem;
+      background: rgba(249, 115, 22, 0.18);
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      transition: background 0.3s ease;
+    }
+
+    .cta-card:hover .cta-icon {
+      background: rgba(249, 115, 22, 0.28);
+    }
+
+    .cta-card h2 {
+      margin: 0;
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .cta-card p {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .cta-card .cta-action {
+      margin-top: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .cta-card .cta-action svg {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+
+    @media (min-width: 720px) {
+      .hero-content {
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        align-items: center;
+      }
+
+      .cta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-hero">
+    <div class="container hero-content">
+      <div class="hero-copy">
+        <p class="eyebrow">Upah Tukang</p>
+        <h1 class="hero-title">Catat, sinkronkan, dan rekap upah tukang dalam satu alur.</h1>
+        <p class="hero-lead">Mulai dari <strong>input harian</strong> hingga <strong>laporan pembayaran</strong> periode, data Anda tersimpan aman di Netlify Blobs, bisa diakses ulang kapan pun, bahkan saat offline.</p>
+      </div>
+      <div class="hero-steps">
+        <ol class="flow-steps" aria-label="Alur kerja aplikasi Upah Tukang">
+          <li>Input upah tenaga, uang beras, dan catatan harian langsung dari lapangan.</li>
+          <li>Sistem menyimpan data di perangkat dan menyinkronkannya begitu koneksi tersedia.</li>
+          <li>Gunakan rekap periode untuk mengontrol pembayaran dan bagikan hasilnya ke tim.</li>
+        </ol>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="cta-section" aria-label="Navigasi utama">
+      <div class="container cta-grid">
+        <a class="cta-card" href="form.html" aria-label="Buka halaman Form Input Upah harian">
+          <span class="cta-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="10" width="36" height="28" rx="6" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M16 6h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M24 18v12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M18 24h12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h2>Input Upah</h2>
+          <p>Catat pekerja, jam kerja, dan uang beras per hari. Data tersimpan otomatis dan bisa disinkronkan saat koneksi kembali stabil.</p>
+          <span class="cta-action">
+            Mulai input
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
+        <a class="cta-card" href="rekap.html" aria-label="Buka halaman Rekap periode pembayaran">
+          <span class="cta-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 14c0-2.21 1.79-4 4-4h24c2.21 0 4 1.79 4 4v20c0 2.21-1.79 4-4 4H12c-2.21 0-4-1.79-4-4V14z" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M16 18h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M16 24h10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M16 30h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M30 30h2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h2>Rekap</h2>
+          <p>Susun total pembayaran per periode, bandingkan antar tukang, dan ekspor hasilnya untuk dokumentasi proyek.</p>
+          <span class="cta-action">
+            Lihat rekap
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
