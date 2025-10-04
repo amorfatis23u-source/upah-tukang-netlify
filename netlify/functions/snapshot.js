@@ -5,7 +5,38 @@ const JSON_HEADERS = {
   "cache-control": "no-store",
 };
 
+const HTML_HEADERS = {
+  "content-type": "text/html; charset=utf-8",
+  "cache-control": "no-store",
+};
+
+const TEXT_HEADERS = {
+  "content-type": "text/plain; charset=utf-8",
+  "cache-control": "no-store",
+};
+
 export default async (req) => {
+  const store = getStore("upah20");
+  const url = new URL(req.url);
+
+  if (req.method === "GET") {
+    const key = url.searchParams.get("key");
+    if (!key) {
+      return new Response("Missing snapshot key", { status: 400, headers: TEXT_HEADERS });
+    }
+
+    try {
+      const html = await store.get(key);
+      if (!html) {
+        return new Response("Snapshot not found", { status: 404, headers: TEXT_HEADERS });
+      }
+      return new Response(html, { headers: HTML_HEADERS });
+    } catch (error) {
+      console.error("Failed to read snapshot", error);
+      return new Response("Failed to read snapshot", { status: 500, headers: TEXT_HEADERS });
+    }
+  }
+
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ ok: false, error: "Method Not Allowed" }),
@@ -41,7 +72,6 @@ export default async (req) => {
   const content = `${metaComment}\n${html}`;
 
   try {
-    const store = getStore("upah20");
     await store.set(key, content, { metadata: { createdAt } });
     return new Response(
       JSON.stringify({ ok: true, key, createdAt }),
