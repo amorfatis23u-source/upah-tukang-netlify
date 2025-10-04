@@ -94,7 +94,19 @@ async function tryServerSet(key, data){ try{ await fetch('/.netlify/functions/st
   const histStart=p.get('histStart');
   const histEnd=p.get('histEnd');
   const histLegacy=p.get('hist'); // kompat lama
-  if(!(histStart||histLegacy)){ rerender(); return; }
+  const newN = p.get('new');
+  if(!(histStart||histLegacy)){
+    if(!newN){
+      const storedStart = localStorage.getItem('upah20_periodStart')||'';
+      const storedEnd = localStorage.getItem('upah20_periodEnd')||'';
+      const ps=document.getElementById('periodStart');
+      const pe=document.getElementById('periodEnd');
+      if(ps) ps.value=storedStart||'';
+      if(pe) pe.value=storedEnd||'';
+    }
+    rerender();
+    return;
+  }
 
   const keysToTry=[];
   if(histStart) keysToTry.push(PREFIX+histStart+'__'+(histEnd||'na'));
