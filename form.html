@@ -977,7 +977,7 @@ tbody td { padding-top: 2px !important; }
   </div>
 <button class="btn" onclick="try{saveAll&&saveAll()}catch(_){ if (typeof save==='function') save('rows', window.rows); else alert('Fungsi simpan tidak tersedia'); }">Simpan</button>
 <div class="muted" style="flex-basis:100%; font-size:11px; margin-top:4px;">
-  Menekan "Simpan" akan mengunduh berkas HTML yang dapat dibuka kembali untuk memulihkan data.
+  Menekan "Simpan" akan menyimpan snapshot terbaru ke Netlify. Jika koneksi gagal, berkas HTML cadangan otomatis diunduh agar tetap bisa dipulihkan secara lokal.
 </div>
   <button class="btn" onclick="window.print()">Cetak</button>
   <button class="btn" onclick="try{downloadCSV&&downloadCSV()}catch(_){alert('downloadCSV tidak ditemukan')}">Unduh CSV</button>
@@ -1217,12 +1217,25 @@ const defaultRumahList = baseRumah
   function fmtHari(h){ return (Math.round(h*10)/10).toString().replace(/\\.0$/,''); }
   function load(key){ try{return JSON.parse(localStorage.getItem('upah20_'+key));}catch(e){return null;} }
   function save(key,val){ localStorage.setItem('upah20_'+key, JSON.stringify(val)); }
-  function saveAll(){
-    save('rows',rows); save('classRates',classRates); save('rumah',rumah);
-    localStorage.setItem('upah20_beras_threshold', String(allowanceThreshold));
-    localStorage.setItem('upah20_beras_amount', String(allowanceAmount));
-    exportHTMLSnapshot();
-    alert('Tersimpan dan diunduh sebagai HTML.');
+  async function saveAll(){
+    try {
+      save('rows',rows); save('classRates',classRates); save('rumah',rumah);
+      localStorage.setItem('upah20_beras_threshold', String(allowanceThreshold));
+      localStorage.setItem('upah20_beras_amount', String(allowanceAmount));
+      const result = await exportHTMLSnapshot();
+      if (result && result.ok) {
+        alert('Snapshot tersimpan ke Netlify. Unduh cadangan lokal tersedia jika diperlukan.');
+      } else if (result && result.fallback) {
+        const message = result.error && result.error.message ? result.error.message : 'Snapshot gagal tersimpan ke Netlify.';
+        alert(`${message} Cadangan HTML diunduh ke perangkat Anda.`);
+      } else {
+        const message = result && result.error && result.error.message ? result.error.message : 'Snapshot tidak dapat dibuat.';
+        alert(message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan saat menyimpan: ' + err.message);
+    }
   }
 
   function resetAll(){
@@ -1645,7 +1658,9 @@ const upahPokok = hari * rate;
     setTimeout(()=>URL.revokeObjectURL(url), 1500);
   }
 
-  function exportHTMLSnapshot(){
+  async function exportHTMLSnapshot(){
+    let htmlDocument = '';
+    let fallbackUsed = false;
     try{
       const payload = {
         rows,
@@ -1665,10 +1680,42 @@ const upahPokok = hari * rate;
       const htmlWithData = bodyOpen
         ? html.replace(bodyOpen[0], `${bodyOpen[0]}${injection}`)
         : (html.includes('</body>') ? html.replace('</body>', `${injection}</body>`) : `${html}${injection}`);
-      _downloadBlob(`${docType}\n${htmlWithData}`, 'text/html;charset=utf-8', _timestampName('upah7hari_snapshot', 'html'));
+      htmlDocument = `${docType}\n${htmlWithData}`;
+
+      const meta = {
+        generatedAt: new Date().toISOString(),
+        page: location.href,
+        period: {
+          start: document.getElementById('periodStart')?.value || null,
+          end: document.getElementById('periodEnd')?.value || null,
+        },
+        rowsCount: Array.isArray(rows) ? rows.length : 0,
+      };
+
+      const response = await fetch('/.netlify/functions/snapshot', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ html: htmlDocument, meta })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result || result.ok !== true) {
+        const errorMessage = result && result.error ? result.error : `HTTP ${response.status}`;
+        throw new Error(errorMessage);
+      }
+
+      return { ok: true, key: result.key, createdAt: result.createdAt };
     }catch(err){
+      if (htmlDocument) {
+        try {
+          _downloadBlob(htmlDocument, 'text/html;charset=utf-8', _timestampName('upah7hari_snapshot', 'html'));
+          fallbackUsed = true;
+        } catch (downloadErr) {
+          console.error('Fallback download failed', downloadErr);
+        }
+      }
       console.error(err);
-      alert('Gagal membuat snapshot HTML: ' + err.message);
+      return { ok: false, error: err, fallback: fallbackUsed };
     }
   }
 
