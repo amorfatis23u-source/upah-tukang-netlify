@@ -1231,6 +1231,9 @@ const defaultRumahList = baseRumah
       try {
         if (typeof window.__saveWeeklyToHistory === 'function') {
           window.__saveWeeklyToHistory(snapshotMeta || undefined);
+          if (snapshotMeta === null) {
+            window.__saveWeeklyToHistory({ snapshotKey: null, snapshotCreatedAt: null, hasSnap: false });
+          }
         }
       } catch(historyError){
         console.warn('Gagal memperbarui riwayat periode', historyError);
@@ -2498,18 +2501,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const meta = (window.__upahLastSnapshotMeta && typeof window.__upahLastSnapshotMeta === 'object') ? window.__upahLastSnapshotMeta : null;
         if (typeof window.__saveWeeklyToHistory === 'function'){
-          window.__saveWeeklyToHistory({ ...(meta || {}), hasSnap: true });
+          if (meta){
+            window.__saveWeeklyToHistory({ ...meta, hasSnap: true });
+          } else {
+            window.__saveWeeklyToHistory({ snapshotKey: null, snapshotCreatedAt: null, hasSnap: false });
+          }
         } else {
           const hist = loadJSON(KEY_HISTORY, []);
           const idx = hist.findIndex(x => x && x.periodeMulai === start);
           if (idx >= 0){
             const prev = hist[idx] || {};
-            hist[idx] = {
-              ...prev,
-              hasSnap: true,
-              snapshotKey: meta && meta.snapshotKey !== undefined ? meta.snapshotKey : prev.snapshotKey,
-              snapshotCreatedAt: meta && meta.snapshotCreatedAt !== undefined ? meta.snapshotCreatedAt : prev.snapshotCreatedAt
-            };
+            if (meta){
+              hist[idx] = {
+                ...prev,
+                hasSnap: true,
+                snapshotKey: meta.snapshotKey !== undefined ? meta.snapshotKey : prev.snapshotKey,
+                snapshotCreatedAt: meta.snapshotCreatedAt !== undefined ? meta.snapshotCreatedAt : prev.snapshotCreatedAt
+              };
+            } else {
+              hist[idx] = {
+                ...prev,
+                hasSnap: false,
+                snapshotKey: null,
+                snapshotCreatedAt: null
+              };
+            }
             saveJSON(KEY_HISTORY, hist);
           }
         }
