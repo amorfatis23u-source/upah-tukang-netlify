@@ -62,6 +62,10 @@
       position: relative;
       overflow: hidden;
       isolation: isolate;
+      cursor: pointer;
+      text-align: left;
+      color: inherit;
+      appearance: none;
     }
 
     .cta-card::after {
@@ -157,7 +161,7 @@
   <main>
     <section class="cta-section" aria-label="Navigasi utama">
       <div class="container cta-grid">
-        <a class="cta-card" href="form.html" aria-label="Buka halaman Form Input Upah harian">
+        <button type="button" class="cta-card" data-action="open-new-form" aria-label="Buka formulir input upah harian di tab ini">
           <span class="cta-icon" aria-hidden="true">
             <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="6" y="10" width="36" height="28" rx="6" stroke="currentColor" stroke-width="2.5"/>
@@ -175,7 +179,7 @@
               <path d="M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
-        </a>
+        </button>
         <a class="cta-card" href="rekap.html" aria-label="Buka halaman Rekap periode pembayaran">
           <span class="cta-icon" aria-hidden="true">
             <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -199,5 +203,16 @@
       </div>
     </section>
   </main>
+  <script type="module">
+    import { openNewFormAutoClose } from "./assets/js/nav.js";
+
+    const newFormButton = document.querySelector('[data-action="open-new-form"]');
+
+    if (newFormButton) {
+      newFormButton.addEventListener("click", () => {
+        openNewFormAutoClose();
+      });
+    }
+  </script>
 </body>
 </html>
