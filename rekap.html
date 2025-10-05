@@ -8,7 +8,15 @@
 <main class="page-content">
   <section class="card">
     <div class="action-bar">
-      <button id="btnOpenForm" class="btn btn-primary">Buka Form (Auto-close)</button>
+      <button id="btnOpenForm" class="btn btn-primary" type="button" title="Buka form baru di tab baru (auto-close)" aria-label="Buka form baru di tab baru (auto-close)">
+        <span class="btn__icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 4v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="btn__label">Form Baru</span>
+      </button>
       <span id="seqBadge" class="badge">Next: ?new=1</span>
       <button id="btnResetSeq" class="btn btn-secondary">Reset Nomor (?new=1)</button>
       <button id="btnReload" class="btn btn-secondary">Muat Ulang</button>

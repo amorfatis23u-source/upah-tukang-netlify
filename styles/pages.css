@@ -69,51 +69,6 @@
   gap: var(--space-sm);
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.1rem;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  border: 1px solid transparent;
-  cursor: pointer;
-  background: transparent;
-  color: var(--text-primary);
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  border-color: rgba(249, 115, 22, 0.7);
-  color: var(--accent-contrast);
-  box-shadow: 0 18px 38px rgba(249, 115, 22, 0.35);
-}
-
-.btn-primary:hover {
-  box-shadow: 0 22px 44px rgba(249, 115, 22, 0.42);
-}
-
-.btn-secondary {
-  background: rgba(30, 41, 59, 0.7);
-  border-color: rgba(148, 163, 184, 0.35);
-}
-
-.btn-secondary:hover {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(148, 163, 184, 0.55);
-}
 
 .input-select {
   appearance: none;
