@@ -97,9 +97,15 @@
       const hasServerSnapshot = !!snapshotKey;
       const histToken = (typeof r.hist === 'string' && r.hist) ? r.hist : (r.periodeMulai || '');
       const fallbackLink = `form.html?hist=${encodeURIComponent(histToken)}`;
-      const linkHref = hasServerSnapshot ? `/.netlify/functions/snapshot?key=${encodeURIComponent(snapshotKey)}` : fallbackLink;
-      const sourceAttr = hasServerSnapshot ? 'server' : 'form';
-      const sourceTitle = hasServerSnapshot ? 'Snapshot tersimpan di server' : 'Data lokal (form)';
+      let linkHref = fallbackLink;
+      if (hasServerSnapshot) {
+        const params = new URLSearchParams();
+        params.set('snapshot', snapshotKey);
+        if (histToken) params.set('hist', histToken);
+        linkHref = `form.html?${params.toString()}`;
+      }
+      const sourceAttr = hasServerSnapshot ? 'server-form' : 'form';
+      const sourceTitle = hasServerSnapshot ? 'Muat form dari snapshot server' : 'Data lokal (form)';
       tr.innerHTML = `
   <td>${r.periodeMulai||''}</td>
   <td>${r.periodeSelesai||''}</td>
