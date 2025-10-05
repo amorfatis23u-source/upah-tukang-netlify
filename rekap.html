@@ -31,6 +31,7 @@
   </section>
 </main>
 </div>
+<script src="assets/js/export-utils.js"></script>
 <script>
   const KEY_HISTORY='upah20_period_history_v2', KEY_SEQ='upah20_new_sequence_counter';
   function load(){ try{return JSON.parse(localStorage.getItem(KEY_HISTORY))||[];}catch(_){return [];} }
@@ -38,6 +39,43 @@
   function getSeq(){ const v=parseInt(localStorage.getItem(KEY_SEQ)||'1',10); return isNaN(v)||v<1?1:v; }
   function setSeq(n){ localStorage.setItem(KEY_SEQ,String(n)); }
   function refreshBadge(){ document.getElementById('seqBadge').textContent='Next: ?new='+getSeq(); }
+  function downloadFile(content, mime, filename){
+    const blob = new Blob([content], {type: mime});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+  function exportFormDataAs(format){
+    if (!window.UpahExport){
+      alert('Fitur ekspor belum tersedia.');
+      return;
+    }
+    const dataset = (typeof window.UpahExport.loadActiveDataset === 'function')
+      ? window.UpahExport.loadActiveDataset()
+      : null;
+    if (!dataset){
+      alert('Data form tidak ditemukan. Buka form dan simpan terlebih dahulu.');
+      return;
+    }
+    const exportData = window.UpahExport.buildSections(dataset);
+    const nameFn = (typeof window.UpahExport.timestampName === 'function')
+      ? window.UpahExport.timestampName
+      : ((prefix, ext)=> `${prefix}.${ext}`);
+    if (format === 'xlsx'){
+      if (typeof window.UpahExport.sectionsToXLSX !== 'function'){
+        alert('Ekspor XLSX tidak tersedia.');
+        return;
+      }
+      const workbook = window.UpahExport.sectionsToXLSX(exportData.sections);
+      downloadFile(workbook, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', nameFn('upah7hari', 'xlsx'));
+      return;
+    }
+    const csv = window.UpahExport.sectionsToCSV(exportData.sections);
+    downloadFile(csv, 'text/csv;charset=utf-8', nameFn('upah7hari', 'csv'));
+  }
   function render(){
     let arr=load(); const order=document.getElementById('order').value||'desc'; const tbody=document.getElementById('tbody'); tbody.innerHTML='';
     if(!arr.length){ tbody.innerHTML='<tr class="empty-state"><td colspan="5">Belum ada data. Buka form, isi & tekan <b>Simpan</b>.</td></tr>'; document.getElementById('counter').textContent='0 periode'; document.getElementById('grand').textContent='Rp 0'; return; }
@@ -68,11 +106,13 @@
   document.getElementById('btnReload').addEventListener('click', render);
   document.getElementById('order').addEventListener('change', render);
   document.getElementById('btnExport').addEventListener('click', ()=>{
-    const arr=load(); if(!arr.length) return alert('Tidak ada data.');
-    const head=['Periode Mulai','Periode Selesai','Total Bayar Periode'];
-    const rows=[head].concat(arr.map(r=>[r.periodeMulai||'', r.periodeSelesai||'', (r.sumTotal||0)]));
-    const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); 
+    try {
+      exportFormDataAs('csv');
+    } catch(err){
+      console.error(err);
+      alert('Gagal mengekspor data.');
+    }
+  });
 
 // === Import CSV (merge to history) ===
 document.getElementById('btnImport').addEventListener('click', ()=>{
@@ -138,9 +178,6 @@ document.getElementById('imp').addEventListener('change', async (e)=>{
   }
 });
 
-const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='rekap-periode-total-bayar.csv'; a.click(); URL.revokeObjectURL(url);
-  });
-  
 // Auto-refresh when page gains focus, becomes visible, restored from BFCache, or storage changes in another tab
 window.addEventListener('focus', render);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) render(); });
