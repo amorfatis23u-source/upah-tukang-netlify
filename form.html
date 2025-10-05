@@ -813,6 +813,7 @@
           <button class="btn btn-secondary" onclick="addWorker()">Tambah Pekerja</button>
           <button class="btn btn-secondary" onclick="window.print()">Cetak</button>
           <button class="btn btn-secondary" onclick="try{downloadCSV&&downloadCSV()}catch(_){alert('downloadCSV tidak ditemukan')}">Unduh CSV</button>
+          <button class="btn btn-secondary" onclick="try{downloadXLSX&&downloadXLSX()}catch(_){alert('downloadXLSX tidak ditemukan')}">Unduh XLSX</button>
           <button class="btn btn-secondary" onclick="try{downloadJSON&&downloadJSON()}catch(_){alert('downloadJSON tidak ditemukan')}">Unduh JSON</button>
           <button class="btn btn-secondary btn-sm" onclick="restoreDefaultRows()">Kosongkan</button>
         </div>
@@ -973,7 +974,9 @@
         </div>
       </div>
     </div>
-  </div>
+</div>
+
+<script src="assets/js/export-utils.js"></script>
 
 <script>
   // ===== Defaults =====
@@ -988,6 +991,17 @@ const defaultRumahList = baseRumah
   // Display order: Sunday first (Minggu, Senin ... Sabtu) mapped to internal indices (Mon..Sun)
   const displayDayOrder = [6,0,1,2,3,4,5];
   const displayDayKeys = displayDayOrder.map(i => dayKeys[i]);
+
+  const calcDayWeight = (window.UpahExport && typeof window.UpahExport.calcDayWeight === 'function')
+    ? window.UpahExport.calcDayWeight
+    : function(label){
+        if (!label) return 0;
+        const str = String(label).trim();
+        if (!str) return 0;
+        if (str === '1/2 Lain') return 0.5;
+        if (/^1\/2\b/i.test(str)) return 0.5;
+        return 1;
+      };
 
   let apiClientInstance = null;
   let apiClientLoader = null;
@@ -1695,13 +1709,9 @@ function groupRows(){
 }
 function rowCalc(r){
     const rate=Number(classRates[r.kelas]||0);
-    const hari = r.rumah.reduce((a,b)=> {
-      if(!b) return a;
-      const isHalf = (b==='1/2 Lain') || /^\s*1\/2\s+/.test(b);
-      return a + (isHalf ? 0.5 : 1);
-    }, 0);
-    
-const upahPokok = hari * rate;
+    const rumahVals = Array.isArray(r.rumah) ? r.rumah : [];
+    const hari = rumahVals.reduce((a,b)=> a + calcDayWeight(b), 0);
+    const upahPokok = hari * rate;
     const uangBeras = hari > allowanceThreshold ? allowanceAmount : 0;
     const bonus = Number((r.bonus??'').toString().replace(/[^\d]/g,''))||0;
     const totalBayar = upahPokok + uangBeras + bonus;
@@ -1902,10 +1912,12 @@ const upahPokok = hari * rate;
     const map = {};
     rows.forEach(r=>{
       const rate = Number(classRates[r.kelas]||0);
+      const rumahVals = Array.isArray(r.rumah) ? r.rumah : [];
       for(let di=0; di<7; di++){
-        const v = r.rumah[di];
+        const v = rumahVals[di];
         if(!v) continue;
-        const w = (v==='1/2 Lain') ? 0.5 : 1;
+        const w = calcDayWeight(v);
+        if(!w) continue;
         if(!map[v]) map[v] = {hari:0, upah:0};
         map[v].hari += w;
         map[v].upah += rate * w;
@@ -1917,10 +1929,11 @@ const upahPokok = hari * rate;
     const map = {}; // {Rumah: [{cnt, upah} x7]}
     rows.forEach(r=>{
       const rate = Number(classRates[r.kelas]||0);
+      const rumahVals = Array.isArray(r.rumah) ? r.rumah : [];
       for(let di=0; di<7; di++){
-        const v = r.rumah[di];
+        const v = rumahVals[di];
         if(!v) continue;
-        const w = (v==='1/2 Lain') ? 0.5 : 1;
+        const w = calcDayWeight(v);
         if(!map[v]) map[v] = Array.from({length:7}, ()=>({cnt:0, upah:0}));
         map[v][di].cnt += 1;
         map[v][di].upah += rate * w;
@@ -1988,12 +2001,6 @@ const upahPokok = hari * rate;
   }
 
   // ===== Export Helpers =====
-  function _csvEscape(v){
-    if(v===null || v===undefined) v = '';
-    v = String(v);
-    if (/[",\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
-    return v;
-  }
   function _timestampName(prefix, ext){
     const d = new Date();
     const pad = n => String(n).padStart(2,'0');
@@ -2083,42 +2090,54 @@ const upahPokok = hari * rate;
     }
   }
 
-  // Export CSV (tampilan tabel pekerja)
+  function _prepareExportSections(){
+    if (!window.UpahExport || typeof window.UpahExport.buildSections !== 'function'){
+      throw new Error('Fitur ekspor tidak tersedia.');
+    }
+    return window.UpahExport.buildSections({
+      rows,
+      classRates,
+      rumah,
+      allowanceThreshold,
+      allowanceAmount,
+      dayKeys,
+      displayDayOrder,
+      periode: activeItem ? (activeItem.periode || '') : '',
+      sd: activeItem ? (activeItem.sd || '') : ''
+    });
+  }
+
+  // Export CSV (tampilan tabel pekerja + rekap)
   function downloadCSV(){
     try{
-      const headers = [
-        'No','Nama','Kelas','Group','Rate',
-        ...displayDayKeys, 'Hari','Upah Pokok','Uang Beras','Total','Keterangan'
-      ];
-      const lines = [ headers.map(_csvEscape).join(',') ];
-
-      rows.forEach((r, idx)=>{
-        const calc = rowCalc(r);
-        const rowVals = [
-          idx+1,
-          r.nama||'',
-          r.kelas||'',
-          r.group||'',
-          calc.rate||0,
-          ...displayDayOrder.map(di=> (r.rumah||[])[di]||''),
-          calc.hari||0,
-          calc.upahPokok||0,
-          calc.uangBeras||0,
-          calc.totalBayar||0,
-          r.ket||''
-        ];
-        
-        lines.push(rowVals.map(_csvEscape).join(','));
-      });
-
-      const csv = lines.join('\r\n');
-      _downloadBlob(csv, 'text/csv;charset=utf-8', _timestampName('upah7hari', 'csv'));
+      const exportData = _prepareExportSections();
+      const csv = window.UpahExport.sectionsToCSV(exportData.sections);
+      const nameFn = window.UpahExport && typeof window.UpahExport.timestampName === 'function'
+        ? window.UpahExport.timestampName
+        : _timestampName;
+      _downloadBlob(csv, 'text/csv;charset=utf-8', nameFn('upah7hari', 'csv'));
     }catch(err){
       console.error(err);
       alert('Gagal mengekspor CSV: ' + err.message);
     }
   }
 
+  function downloadXLSX(){
+    try{
+      if (!window.UpahExport || typeof window.UpahExport.sectionsToXLSX !== 'function'){
+        throw new Error('Fitur XLSX tidak tersedia.');
+      }
+      const exportData = _prepareExportSections();
+      const workbook = window.UpahExport.sectionsToXLSX(exportData.sections);
+      const nameFn = window.UpahExport && typeof window.UpahExport.timestampName === 'function'
+        ? window.UpahExport.timestampName
+        : _timestampName;
+      _downloadBlob(workbook, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', nameFn('upah7hari', 'xlsx'));
+    }catch(err){
+      console.error(err);
+      alert('Gagal mengekspor XLSX: ' + err.message);
+    }
+  }
 
 
   function setView(m){ viewMode = m; localStorage.setItem('upah20_viewMode', m); rerender(); }
