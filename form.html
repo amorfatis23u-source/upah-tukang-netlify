@@ -809,7 +809,7 @@
           </div>
         </div>
         <div class="actions-buttons">
-          <button class="btn btn-primary" onclick="try{saveAll&&saveAll()}catch(_){ if (typeof save==='function') save('rows', window.rows); else alert('Fungsi simpan tidak tersedia'); }">Simpan</button>
+          <button id="saveButton" class="btn btn-primary" type="button">Simpan</button>
           <button class="btn btn-secondary" onclick="addWorker()">Tambah Pekerja</button>
           <button class="btn btn-secondary" onclick="window.print()">Cetak</button>
           <button class="btn btn-secondary" onclick="try{downloadCSV&&downloadCSV()}catch(_){alert('downloadCSV tidak ditemukan')}">Unduh CSV</button>
@@ -817,6 +817,7 @@
           <button class="btn btn-secondary btn-sm" onclick="restoreDefaultRows()">Kosongkan</button>
         </div>
         <p class="actions-note muted">Menekan <strong>Simpan</strong> akan menyimpan snapshot terbaru ke Netlify. Jika koneksi gagal, berkas HTML cadangan otomatis diunduh agar tetap bisa dipulihkan secara lokal.</p>
+        <p id="saveStatus" class="muted" role="status" aria-live="polite"></p>
       </section>
 
       <details class="card collapsible" id="secOptions">
@@ -1341,8 +1342,96 @@ const defaultRumahList = baseRumah
   // ===== Storage helpers =====
   function rp(n){ n=Number(n||0); return 'Rp '+n.toLocaleString('id-ID'); }
   function fmtHari(h){ return (Math.round(h*10)/10).toString().replace(/\\.0$/,''); }
+
+  const SAVE_RETRY_DELAYS = [0, 500, 1500];
+  async function saveData(payload){
+    const endpoint = (typeof window !== 'undefined' && typeof window.ENV_SAVE_URL === 'string' && window.ENV_SAVE_URL.trim())
+      ? window.ENV_SAVE_URL.trim()
+      : '/.netlify/functions/save';
+
+    let lastError = null;
+
+    for (let attempt = 0; attempt < SAVE_RETRY_DELAYS.length; attempt++){
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+          mode: 'cors'
+        });
+        clearTimeout(timeoutId);
+
+        const rawBody = await response.text();
+        let data = rawBody;
+        if (rawBody){
+          try { data = JSON.parse(rawBody); }
+          catch (_){ /* raw text fallback */ }
+        }
+
+        const upstreamRejected = data && typeof data === 'object' && data.ok === false;
+        if (!response.ok || upstreamRejected){
+          const statusLabel = response.status ? `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}` : '';
+          const detail = (data && typeof data === 'object')
+            ? (data.error || data.message || JSON.stringify(data))
+            : (typeof data === 'string' && data.trim() ? data.trim() : statusLabel || 'Permintaan gagal');
+          const error = new Error(detail || statusLabel || 'Permintaan gagal');
+          error.status = response.status;
+          error.body = data;
+          error.response = response;
+          throw error;
+        }
+
+        if (data && typeof data === 'object'){
+          if (data.ok === undefined) data.ok = true;
+          return data;
+        }
+
+        return { ok: true, body: data ?? null };
+      } catch (err) {
+        clearTimeout(timeoutId);
+        const error = err && err.name === 'AbortError'
+          ? Object.assign(new Error('Permintaan kedaluwarsa setelah 10 detik'), { name: err.name })
+          : err;
+        console.error('saveData attempt failed', error);
+        lastError = error;
+
+        const status = typeof error?.status === 'number' ? error.status : null;
+        const retryable = error.name === 'AbortError' || status === null || status >= 500;
+        if (attempt < SAVE_RETRY_DELAYS.length - 1 && retryable){
+          const delay = SAVE_RETRY_DELAYS[attempt + 1];
+          if (delay){
+            await new Promise(res => setTimeout(res, delay));
+          }
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError || new Error('Gagal menyimpan data');
+  }
+
+  let saveInProgress = false;
+  function setSaveStatus(message, opts){
+    const statusEl = document.getElementById('saveStatus');
+    if (statusEl){ statusEl.textContent = message || ''; }
+    const btn = document.getElementById('saveButton');
+    if (btn){ btn.disabled = Boolean(opts && opts.disableButton); }
+  }
+
   async function saveAll(){
+    if (saveInProgress) return null;
+    saveInProgress = true;
+
+    setSaveStatus('Menyimpan…', { disableButton: true });
+
     window.__upahLastSnapshotMeta = null;
+    let snapshotDocument = '';
+
     try {
       save('rows', rows); save('classRates', classRates); save('rumah', rumah);
       if (activeItem){
@@ -1351,10 +1440,20 @@ const defaultRumahList = baseRumah
         scheduleAutosave('allowance');
         flushAutosaveNow();
       }
-      const result = await exportHTMLSnapshot();
-      const snapshotMeta = (result && result.ok)
-        ? { snapshotKey: result.key, snapshotCreatedAt: result.createdAt }
+
+      const snapshotPayload = buildSnapshotPayload();
+      snapshotDocument = snapshotPayload.html;
+
+      const result = await saveData(snapshotPayload);
+      const normalized = (result && typeof result === 'object') ? result : { ok: true };
+
+      const snapshotMeta = (normalized && normalized.ok !== false)
+        ? {
+            snapshotKey: normalized.key ?? normalized.snapshotKey ?? null,
+            snapshotCreatedAt: normalized.createdAt ?? normalized.snapshotCreatedAt ?? null
+          }
         : null;
+
       window.__upahLastSnapshotMeta = snapshotMeta;
       try {
         if (typeof window.__saveWeeklyToHistory === 'function') {
@@ -1366,15 +1465,9 @@ const defaultRumahList = baseRumah
       } catch(historyError){
         console.warn('Gagal memperbarui riwayat periode', historyError);
       }
-      if (result && result.ok) {
-        alert('Snapshot tersimpan ke Netlify. Unduh cadangan lokal tersedia jika diperlukan.');
-      } else if (result && result.fallback) {
-        const message = result.error && result.error.message ? result.error.message : 'Snapshot gagal tersimpan ke Netlify.';
-        alert(`${message} Cadangan HTML diunduh ke perangkat Anda.`);
-      } else {
-        const message = result && result.error && result.error.message ? result.error.message : 'Snapshot tidak dapat dibuat.';
-        alert(message);
-      }
+
+      setSaveStatus('Tersimpan ✓', { disableButton: false });
+      return normalized;
     } catch (err) {
       window.__upahLastSnapshotMeta = null;
       try {
@@ -1384,8 +1477,21 @@ const defaultRumahList = baseRumah
       } catch(historyError){
         console.warn('Gagal memperbarui riwayat periode', historyError);
       }
-      console.error(err);
-      alert('Terjadi kesalahan saat menyimpan: ' + err.message);
+
+      if (snapshotDocument){
+        try {
+          triggerSnapshotDownload(snapshotDocument);
+        } catch (downloadErr){
+          console.error('Fallback download failed', downloadErr);
+        }
+      }
+
+      console.error('saveAll failed', err);
+      const message = err && err.message ? err.message : 'Terjadi kesalahan tak dikenal';
+      setSaveStatus(`Gagal: ${message}`, { disableButton: false });
+      return null;
+    } finally {
+      saveInProgress = false;
     }
   }
 
@@ -1830,89 +1936,43 @@ const upahPokok = hari * rate;
     setTimeout(()=>URL.revokeObjectURL(url), 1500);
   }
 
-  async function exportHTMLSnapshot(){
-    let htmlDocument = '';
-    let fallbackUsed = false;
-    try{
-      const payload = {
-        rows,
-        classRates,
-        rumah,
-        allowanceThreshold,
-        allowanceAmount
-      };
-      const serialized = JSON.stringify(payload).replace(/</g, '\\u003C');
-      const doc = document;
-      const docType = doc.doctype
-        ? `<!DOCTYPE ${doc.doctype.name}${doc.doctype.publicId ? ` PUBLIC "${doc.doctype.publicId}"` : ''}${!doc.doctype.publicId && doc.doctype.systemId ? ' SYSTEM' : ''}${doc.doctype.systemId ? ` "${doc.doctype.systemId}"` : ''}>`
-        : '<!doctype html>';
-      const html = doc.documentElement.outerHTML;
-      const injection = `<script>window.__UPAH_DATA__ = ${serialized};</` + `script>`;
-      const bodyOpen = html.match(/<body[^>]*>/i);
-      const htmlWithData = bodyOpen
-        ? html.replace(bodyOpen[0], `${bodyOpen[0]}${injection}`)
-        : (html.includes('</body>') ? html.replace('</body>', `${injection}</body>`) : `${html}${injection}`);
-      htmlDocument = `${docType}\n${htmlWithData}`;
+  function buildSnapshotPayload(){
+    const payload = {
+      rows,
+      classRates,
+      rumah,
+      allowanceThreshold,
+      allowanceAmount
+    };
+    const serialized = JSON.stringify(payload).replace(/</g, '\\u003C');
+    const doc = document;
+    const docType = doc.doctype
+      ? `<!DOCTYPE ${doc.doctype.name}${doc.doctype.publicId ? ` PUBLIC "${doc.doctype.publicId}"` : ''}${!doc.doctype.publicId && doc.doctype.systemId ? ' SYSTEM' : ''}${doc.doctype.systemId ? ` "${doc.doctype.systemId}"` : ''}>`
+      : '<!doctype html>';
+    const html = doc.documentElement.outerHTML;
+    const injection = `<script>window.__UPAH_DATA__ = ${serialized};</` + `script>`;
+    const bodyOpen = html.match(/<body[^>]*>/i);
+    const htmlWithData = bodyOpen
+      ? html.replace(bodyOpen[0], `${bodyOpen[0]}${injection}`)
+      : (html.includes('</body>') ? html.replace('</body>', `${injection}</body>`) : `${html}${injection}`);
+    const htmlDocument = `${docType}\n${htmlWithData}`;
 
-      const meta = {
-        generatedAt: new Date().toISOString(),
-        page: location.href,
-        period: {
-          start: activeItem ? (activeItem.periode || null) : null,
-          end: activeItem ? (activeItem.sd || null) : null,
-        },
-        rowsCount: Array.isArray(rows) ? rows.length : 0,
-      };
+    const meta = {
+      generatedAt: new Date().toISOString(),
+      page: location.href,
+      period: {
+        start: activeItem ? (activeItem.periode || null) : null,
+        end: activeItem ? (activeItem.sd || null) : null,
+      },
+      rowsCount: Array.isArray(rows) ? rows.length : 0,
+    };
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+    return { html: htmlDocument, meta };
+  }
 
-      let response;
-      try {
-        response = await fetch('/api/save', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ html: htmlDocument, meta }),
-          mode: 'cors',
-          signal: controller.signal
-        });
-      } catch (fetchError) {
-        throw new Error(fetchError && fetchError.message ? fetchError.message : 'Gagal menghubungi layanan penyimpanan');
-      } finally {
-        clearTimeout(timeoutId);
-      }
-
-      const rawBody = await response.text();
-      let result = {};
-      if (rawBody) {
-        try {
-          result = JSON.parse(rawBody);
-        } catch (parseError) {
-          result = { message: rawBody };
-        }
-      }
-
-      const responseOk = response.ok && (result.ok === undefined || result.ok === true);
-      if (!responseOk) {
-        const statusText = response.statusText ? ` ${response.statusText}` : '';
-        const upstreamMessage = result && (result.error || result.message);
-        const errorMessage = upstreamMessage || `HTTP ${response.status}${statusText}`;
-        throw new Error(errorMessage);
-      }
-
-      return { ok: true, ...result };
-    }catch(err){
-      if (htmlDocument) {
-        try {
-          _downloadBlob(htmlDocument, 'text/html;charset=utf-8', _timestampName('upah7hari_snapshot', 'html'));
-          fallbackUsed = true;
-        } catch (downloadErr) {
-          console.error('Fallback download failed', downloadErr);
-        }
-      }
-      console.error(err);
-      return { ok: false, error: err, fallback: fallbackUsed };
-    }
+  function triggerSnapshotDownload(htmlDocument){
+    if (!htmlDocument) return;
+    _downloadBlob(htmlDocument, 'text/html;charset=utf-8', _timestampName('upah7hari_snapshot', 'html'));
   }
 
   // Export JSON (raw data + settings)
@@ -2040,6 +2100,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const b = document.getElementById('berasInput'); if (b) b.value = allowanceAmount;
     }
   }catch(e){ console.error(e); }
+
+  try {
+    const btn = document.getElementById('saveButton');
+    if (btn){
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        saveAll();
+      });
+    }
+  } catch (err) {
+    console.error('Gagal menginisialisasi tombol simpan', err);
+  }
 });
 </script>
 
