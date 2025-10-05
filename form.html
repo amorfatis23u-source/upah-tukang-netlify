@@ -1864,19 +1864,43 @@ const upahPokok = hari * rate;
         rowsCount: Array.isArray(rows) ? rows.length : 0,
       };
 
-      const response = await fetch('/.netlify/functions/snapshot', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ html: htmlDocument, meta })
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result || result.ok !== true) {
-        const errorMessage = result && result.error ? result.error : `HTTP ${response.status}`;
+      let response;
+      try {
+        response = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ html: htmlDocument, meta }),
+          mode: 'cors',
+          signal: controller.signal
+        });
+      } catch (fetchError) {
+        throw new Error(fetchError && fetchError.message ? fetchError.message : 'Gagal menghubungi layanan penyimpanan');
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      const rawBody = await response.text();
+      let result = {};
+      if (rawBody) {
+        try {
+          result = JSON.parse(rawBody);
+        } catch (parseError) {
+          result = { message: rawBody };
+        }
+      }
+
+      const responseOk = response.ok && (result.ok === undefined || result.ok === true);
+      if (!responseOk) {
+        const statusText = response.statusText ? ` ${response.statusText}` : '';
+        const upstreamMessage = result && (result.error || result.message);
+        const errorMessage = upstreamMessage || `HTTP ${response.status}${statusText}`;
         throw new Error(errorMessage);
       }
 
-      return { ok: true, key: result.key, createdAt: result.createdAt };
+      return { ok: true, ...result };
     }catch(err){
       if (htmlDocument) {
         try {
