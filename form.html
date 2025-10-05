@@ -989,6 +989,33 @@ const defaultRumahList = baseRumah
   const displayDayOrder = [6,0,1,2,3,4,5];
   const displayDayKeys = displayDayOrder.map(i => dayKeys[i]);
 
+  let apiClientInstance = null;
+  let apiClientLoader = null;
+  let apiClientLoadError = null;
+
+  function ensureApiClient(){
+    if (apiClientInstance) return Promise.resolve(apiClientInstance);
+    if (apiClientLoadError) return Promise.reject(apiClientLoadError);
+    if (!apiClientLoader){
+      apiClientLoader = import('./assets/js/config.js')
+        .then((module) => {
+          if (!module || typeof module.createApiClient !== 'function'){
+            throw new Error('Modul konfigurasi API tidak tersedia');
+          }
+          const client = module.createApiClient();
+          apiClientInstance = client;
+          return client;
+        })
+        .catch((err) => {
+          const error = err instanceof Error ? err : new Error(String(err));
+          console.error('Gagal memuat konfigurasi backend', error);
+          apiClientLoadError = error;
+          throw error;
+        });
+    }
+    return apiClientLoader;
+  }
+
   const snapshotData = (typeof window !== 'undefined' && window.__UPAH_DATA__) ? window.__UPAH_DATA__ : null;
   const snapshotThreshold = snapshotData && snapshotData.allowanceThreshold;
   const snapshotAmount = snapshotData && snapshotData.allowanceAmount;
@@ -1345,9 +1372,43 @@ const defaultRumahList = baseRumah
 
   const SAVE_RETRY_DELAYS = [0, 500, 1500];
   async function saveData(payload){
-    const endpoint = (typeof window !== 'undefined' && typeof window.ENV_SAVE_URL === 'string' && window.ENV_SAVE_URL.trim())
-      ? window.ENV_SAVE_URL.trim()
-      : '/.netlify/functions/save';
+    let client;
+    try {
+      client = await ensureApiClient();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Gagal menyiapkan API client', error);
+      throw error;
+    }
+
+    if (!client || typeof client.createRequest !== 'function'){
+      const missing = new Error('Konfigurasi backend tidak tersedia');
+      console.error('saveData: API client hilang', missing);
+      throw missing;
+    }
+
+    const payloadIsObject = payload && typeof payload === 'object';
+    const forceNew = Boolean(payloadIsObject && payload.meta && payload.meta.forceNew);
+    const lastMeta = (typeof window !== 'undefined' && window.__upahLastSnapshotMeta && typeof window.__upahLastSnapshotMeta === 'object')
+      ? window.__upahLastSnapshotMeta
+      : null;
+    const lastKeyRaw = lastMeta && typeof lastMeta.snapshotKey === 'string' ? lastMeta.snapshotKey.trim() : '';
+    const hasExistingKey = Boolean(lastKeyRaw);
+    const shouldCreateNew = forceNew || !hasExistingKey;
+    const targetKey = shouldCreateNew ? null : lastKeyRaw;
+
+    const requestBody = payloadIsObject ? { ...payload } : payload;
+    if (requestBody && typeof requestBody === 'object'){
+      if (shouldCreateNew){
+        delete requestBody.key;
+      } else if (targetKey){
+        requestBody.key = targetKey;
+      }
+    }
+
+    const requestLabel = shouldCreateNew ? 'save' : 'update';
+    const requestMethod = shouldCreateNew ? 'POST' : 'PUT';
+    const requestQuery = { new: shouldCreateNew ? '1' : '0' };
 
     let lastError = null;
 
@@ -1355,13 +1416,29 @@ const defaultRumahList = baseRumah
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-          mode: 'cors'
-        });
+        let requestConfig;
+        try {
+          requestConfig = client.createRequest(requestLabel, {
+            method: requestMethod,
+            body: requestBody,
+            query: requestQuery,
+          });
+        } catch (configErr) {
+          const error = configErr instanceof Error ? configErr : new Error(String(configErr));
+          error.retryable = false;
+          throw error;
+        }
+
+        const fetchInit = { ...requestConfig.init, signal: controller.signal };
+        if (requestConfig.init && requestConfig.init.headers){
+          if (requestConfig.init.headers instanceof Headers){
+            fetchInit.headers = new Headers(requestConfig.init.headers);
+          } else {
+            fetchInit.headers = { ...requestConfig.init.headers };
+          }
+        }
+
+        const response = await fetch(requestConfig.url, fetchInit);
         clearTimeout(timeoutId);
 
         const rawBody = await response.text();
@@ -1394,12 +1471,16 @@ const defaultRumahList = baseRumah
         clearTimeout(timeoutId);
         const error = err && err.name === 'AbortError'
           ? Object.assign(new Error('Permintaan kedaluwarsa setelah 10 detik'), { name: err.name })
-          : err;
+          : err instanceof Error ? err : new Error(String(err));
         console.error('saveData attempt failed', error);
         lastError = error;
 
         const status = typeof error?.status === 'number' ? error.status : null;
-        const retryable = error.name === 'AbortError' || status === null || status >= 500;
+        let retryable = error.name === 'AbortError' || status === null || status >= 500;
+        if (error && error.retryable === false){
+          retryable = false;
+        }
+
         if (attempt < SAVE_RETRY_DELAYS.length - 1 && retryable){
           const delay = SAVE_RETRY_DELAYS[attempt + 1];
           if (delay){

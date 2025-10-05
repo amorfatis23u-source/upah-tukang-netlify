@@ -7,6 +7,12 @@
   external_node_modules = ["@netlify/blobs"]
 
 [[redirects]]
-  from = "/api/save"
-  to = "/.netlify/functions/save"
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
   status = 200
+
+[template.environment]
+  DATA_BACKEND = "NETLIFY_FN"
+  WEBAPP_URL = "https://script.google.com/macros/s/YOUR-WEBAPP-ID/exec"
+  API_KEY = "optional-apps-script-api-key"
+  SHEET_ID = "optional-spreadsheet-id"
