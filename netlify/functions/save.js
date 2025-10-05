@@ -8,7 +8,7 @@ const NORMALIZED_ENV_ORIGINS = [
   .map((value) => (typeof value === "string" ? value.trim() : ""))
   .filter(Boolean);
 
-const ALLOWED_ORIGIN = NORMALIZED_ENV_ORIGINS[0] || "";
+const ALLOWED_ORIGINS = NORMALIZED_ENV_ORIGINS;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST,OPTIONS",
@@ -21,10 +21,18 @@ const JSON_HEADERS = {
   "cache-control": "no-store",
 };
 
-function withCors(init = {}) {
+function withCors(init = {}, origin) {
   const headers = new Headers(init.headers || {});
-  if (ALLOWED_ORIGIN) {
-    headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  let allowedOriginHeader = "";
+
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    allowedOriginHeader = origin;
+  } else if (!origin && ALLOWED_ORIGINS.length > 0) {
+    allowedOriginHeader = ALLOWED_ORIGINS[0];
+  }
+
+  if (allowedOriginHeader) {
+    headers.set("Access-Control-Allow-Origin", allowedOriginHeader);
   }
 
   for (const [key, value] of Object.entries(CORS_HEADERS)) {
@@ -36,13 +44,13 @@ function withCors(init = {}) {
   return headers;
 }
 
-function jsonResponse(body, init = {}) {
+function jsonResponse(body, init = {}, origin) {
   const headers = withCors({
     headers: {
       ...JSON_HEADERS,
       ...(init.headers || {}),
     },
-  });
+  }, origin);
 
   return new Response(JSON.stringify(body), {
     ...init,
@@ -55,11 +63,16 @@ function isOriginAllowed(origin) {
     return true;
   }
 
-  if (!ALLOWED_ORIGIN) {
-    return false;
+  const isAllowed = ALLOWED_ORIGINS.includes(origin);
+
+  if (!isAllowed) {
+    console.error("save-function: blocked origin", {
+      origin,
+      allowedOrigins: ALLOWED_ORIGINS,
+    });
   }
 
-  return origin === ALLOWED_ORIGIN;
+  return isAllowed;
 }
 
 function buildErrorBody(error, details) {
@@ -74,25 +87,36 @@ export default async (req) => {
   const requestOrigin = req.headers.get("origin");
 
   if (!isOriginAllowed(requestOrigin)) {
-    console.error("save-function: blocked origin", { origin: requestOrigin });
-    return jsonResponse(buildErrorBody("Origin Not Allowed"), { status: 403 });
+    return jsonResponse(
+      buildErrorBody("Origin Not Allowed"),
+      { status: 403 },
+      requestOrigin,
+    );
   }
 
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
-      headers: withCors(),
+      headers: withCors({}, requestOrigin),
     });
   }
 
   if (req.method !== "POST") {
-    return jsonResponse(buildErrorBody("Method Not Allowed"), { status: 405 });
+    return jsonResponse(
+      buildErrorBody("Method Not Allowed"),
+      { status: 405 },
+      requestOrigin,
+    );
   }
 
   const targetUrl = process.env.SAVE_TARGET_URL;
   if (!targetUrl) {
     console.error("Missing SAVE_TARGET_URL environment variable");
-    return jsonResponse(buildErrorBody("SAVE_TARGET_URL is not configured"), { status: 500 });
+    return jsonResponse(
+      buildErrorBody("SAVE_TARGET_URL is not configured"),
+      { status: 500 },
+      requestOrigin,
+    );
   }
 
   let payload;
@@ -107,6 +131,7 @@ export default async (req) => {
         message: error instanceof Error ? error.message : String(error),
       }),
       { status: 400 },
+      requestOrigin,
     );
   }
 
@@ -123,9 +148,13 @@ export default async (req) => {
       hasHtml: Boolean(payload && typeof payload.html === "string"),
       hasMeta: Boolean(payload && typeof payload.meta === "object"),
     });
-    return jsonResponse(buildErrorBody("Invalid payload", { field: "html/meta" }), {
-      status: 400,
-    });
+    return jsonResponse(
+      buildErrorBody("Invalid payload", { field: "html/meta" }),
+      {
+        status: 400,
+      },
+      requestOrigin,
+    );
   }
 
   console.info("save-function: received payload", {
@@ -150,6 +179,7 @@ export default async (req) => {
         message: error instanceof Error ? error.message : String(error),
       }),
       { status: /timeout/i.test(String(error)) ? 504 : 502 },
+      requestOrigin,
     );
   }
 
@@ -185,11 +215,15 @@ export default async (req) => {
       (responseBody && (responseBody.error || responseBody.message)) ||
       upstreamResponse.statusText ||
       `HTTP ${status}`;
-    return jsonResponse(buildErrorBody(errorMessage, responseBody), { status });
+    return jsonResponse(
+      buildErrorBody(errorMessage, responseBody),
+      { status },
+      requestOrigin,
+    );
   }
 
   return new Response(JSON.stringify(responseBody), {
     status,
-    headers: withCors({ headers: JSON_HEADERS }),
+    headers: withCors({ headers: JSON_HEADERS }, requestOrigin),
   });
 };
