@@ -4,1127 +4,972 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Kalkulator Upah — Group + Uang Beras (Mobile Friendly)</title>
+<link rel="stylesheet" href="styles/system.css">
+<link rel="stylesheet" href="styles/pages.css">
 <style>
-  :root { --bg:#0f172a; --card:#0b1220; --text:#e5e7eb; --sub:#94a3b8; --border:#334155; --hi:#0ea5b7; --accent:#10b981; --warn:#f59e0b; }
-  * { box-sizing: border-box; }
-  html, body { height:100%; }
-  body { margin:0; background:var(--bg); color:var(--text);
-         font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', Arial;
-         font-size:10pt; line-height:1.35;}
-  .container { max-width:1280px; margin:0 auto; padding:18px; }
-  h1 { margin:0 0 6px; font-size:21px; }
-  h3 { margin:0 0 6px; font-size:15px; }
-  .sub { color:var(--sub); margin-bottom:12px; }
-  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; margin-bottom:10px; }
-  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .stack { display:flex; flex-direction:column; gap:8px; }
-  .btn { padding:7px 12px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; font-size:0.95em; }
-  .btn.primary { background:var(--hi); border:0; color:#05202c; font-weight:700; }
-  .btn.ghost { background:transparent; border:1px dashed var(--border); }
-  .btn.small { padding:5px 9px; font-size:0.85em; }
-  .btn.block { width:100%; text-align:center; }
-  .input, select, textarea { background:var(--card); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:12px; width:100%; font-size:0.95em; min-height:40px; }
-  select { appearance:none; }
-  .chip { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:var(--card); margin:4px 6px 0 0; font-size:0.95em; }
-  .chip button { background:transparent; border:0; color:var(--sub); cursor:pointer; }
-  table { width:100%; border-collapse:collapse; }
-  th, td { padding:6px; border-bottom:1px dashed var(--border); vertical-align:top; }
-  thead th { background:var(--card); position:sticky; top:0; z-index:2; }
-  .center { text-align:center; }
-  .right { text-align:right; }
-  .sum { font-weight:800; font-size:1.05em; }
-  .muted { color:var(--sub); font-size:10px; }
-  .cellstack { display:flex; flex-direction:column; gap:2px; align-items:flex-end; }
-  .cellstack .cnt { font-size:10px; color:var(--sub); }
-  .badge { display:inline-block; padding:2px 6px; border-radius:999px; border:1px solid var(--border); color:var(--sub); margin-left:8px; font-weight:600; }
-  .group-head td { background:rgba(14,165,183,0.09); border-bottom:1px solid var(--border); font-weight:700; }
-  .group-sub td { background:rgba(14,165,183,0.05); border-top:1px dashed var(--border); font-weight:700; }
-  .scroll-x { overflow-x:auto; -webkit-overflow-scrolling: touch; }
-  /* Floating action bar for mobile */
-  .fabbar { position:fixed; left:0; right:0; bottom:0; z-index:9; padding:8px 8px; backdrop-filter:saturate(120%) blur(4px); }
-.container { padding-bottom: 140px; } 
-@supports (padding: max(0px)) {
-  .container { padding-bottom: max(140px, env(safe-area-inset-bottom)); }
-}
-@media print { .fabbar { visibility: hidden !important; } }
-  .fabbar .card { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px; }
-  .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#a7f3d0; font-weight:700; }
-  .pill .small { font-weight:500; color:#d1fae5; font-size:11px;}
-  /* Card Mode styles */
-  .worker-card { border:1px solid var(--border); border-radius:14px; padding:10px; background:rgba(255,255,255,0.02); margin-bottom:8px; }
-  .card-header { display:flex; gap:8px; align-items:center; justify-content:space-between; }
-  .name { font-weight:800; font-size:1.05em; }
-  .daygrid { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; }
-  .daygrid .item { display:flex; flex-direction:column; gap:4px; }
-  .kv { display:flex; gap:10px; flex-wrap:wrap; }
-  .kv .row { gap:6px; }
-  .totals { display:flex; flex-wrap:wrap; gap:8px; }
-  .totals .chip { margin:0; }
-  .quickchips { margin-top:6px; }
-  /* Responsive overrides */
-  @media (max-width: 900px) {
-    body { font-size:12pt; }
-    .container { padding:12px; }
-    .btn { min-height:42px; }
-    .input, select, textarea { font-size:16px; min-height:44px; } /* prevent iOS zoom */
-    .daygrid { grid-template-columns: 1fr; }
-    .hide-sm { visibility: hidden !important; }
-  }
-  @media print {
-    .btn, .fabbar { visibility: hidden !important; }
-    .card { break-inside: avoid; }
-    thead th { position: static; }
+  :root {
+    --day-zebra: rgba(249, 115, 22, 0.12);
   }
 
-  .input.right{ text-align:right; }
-</style>
-
-<style>
-:root {
-  --rowA: rgba(148,163,184,0.06);
-  --rowB: rgba(148,163,184,0.12);
-  --cardA: rgba(255,255,255,0.03);
-  --cardB: rgba(255,255,255,0.06);
-}
-tbody tr.zebra-a td { background: var(--rowA); }
-tbody tr.zebra-b td { background: var(--rowB); }
-.worker-card.zebra-a { background: var(--cardA); }
-.worker-card.zebra-b { background: var(--cardB); }
-@media print {
-  tbody tr.zebra-a td, tbody tr.zebra-b td {
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  .page-shell {
+    padding-bottom: calc(var(--space-xl) * 3.5);
   }
-}
-</style>
 
-
-
-<style>
-@media print {
-  /* Remove all visual boxes */
-  * { box-shadow: none !important; text-shadow: none !important; }
-  html, body { background: #ffffff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  /* Tables */
-  table, thead, tbody, tfoot, tr, th, td { 
-    background: transparent !important; 
-    border: 0 !important; 
-    outline: 0 !important;
+  .topbar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    align-items: flex-start;
   }
-  /* Remove zebra/card fills */
-  tbody tr.zebra-a td, tbody tr.zebra-b td,
-  .worker-card.zebra-a, .worker-card.zebra-b,
-  .worker-card, .card, .panel, .section, .container {
-    background: transparent !important; border: 0 !important; outline: 0 !important;
+
+  .topbar__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
   }
-  /* Group/Subtotal rows */
-  .group-head td, .group-sub td, .subtotal-row td, .subtotal-row, .group-header, .group-subtotal {
-    background: transparent !important; border: 0 !important; outline: 0 !important;
+
+  .logo-mark {
+    font-size: clamp(2.75rem, 8vw, 3.75rem);
+    line-height: 1;
   }
-  /* Header rows: no sticky, no background */
-  thead tr, .sticky { position: static !important; background: transparent !important; }
-  /* Horizontal rules */
-  hr { border: 0 !important; height: 0 !important; }
-  /* Inputs/buttons hidden in print unless they hold values to show */
-  button, .btn, .controls, .toolbar, .no-print { visibility: hidden !important; }
-  /* Ensure good spacing (optional, mild) */
-  td, th { padding: 2px 4px !important; }
-}
-</style>
 
-
-<style>
-@media print {
-  /* Flatten any chip/pill/badge-like elements so only text remains */
-  .chip, .badge, .pill, .tag, .lozenge,
-  [class*="chip"], [class*="badge"], [class*="pill"], [class*="tag"], [class*="lozenge"] {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    outline: 0 !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
+  .app-title {
+    margin: 0;
   }
-  /* Remove any inner boxes inside table cells/headers */
-  th *, td * {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    outline: 0 !important;
-    border-radius: 0 !important;
+
+  #mainActionsFixed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
   }
-  /* Inputs/selects rendered as plain text */
-  input, select, textarea {
-    -webkit-appearance: none !important;
-    appearance: none !important;
-    background: transparent !important;
-    border: 0 !important;
-    outline: 0 !important;
-    box-shadow: none !important;
+
+  .actions-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: stretch;
   }
-}
-</style>
 
-
-<style>
-@media print {
-  /* Force ALL text (and pseudo-elements) to pure black */
-  *, *::before, *::after {
-    color: #000 !important;
-    -webkit-text-fill-color: #000 !important;
-    text-shadow: none !important;
+  .actions-buttons .btn {
+    min-width: max(150px, 18ch);
   }
-  a, a:link, a:visited, a:active {
-    color: #000 !important;
-    text-decoration: none !important;
+
+  .actions-buttons.btn-compact .btn {
+    min-width: max(132px, 14ch);
   }
-  /* Inputs/selects text black */
-  input, select, textarea {
-    color: #000 !important;
-    -webkit-text-fill-color: #000 !important;
+
+  .actions-note {
+    margin: 0;
   }
-  /* SVG text/icons */
-  svg *, svg text, svg tspan {
-    fill: #000 !important;
-    stroke: #000 !important;
+
+  .form-grid {
+    display: grid;
+    gap: var(--space-sm);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
-  /* Prefer light color scheme for print */
-  :root { color-scheme: light !important; }
-}
-</style>
 
-
-<style>
-.topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-.topbar h1{ margin:0; }
-.search-box input{
-  padding:8px 10px; border:1px solid var(--line, #e5e7eb); border-radius:10px;
-  font-size:14px; min-width:220px;
-}
-@media (max-width:520px){
-  .search-box input{ min-width:160px; width:100%; }
-}
-@media print { .search-box{ visibility: hidden !important; } }
-</style>
-
-
-<style>
-/* Sticky top search bar */
-.topbar{
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  padding: 8px 10px;
-  background: rgba(255,255,255,0.9);
-  -webkit-backdrop-filter: saturate(120%) blur(4px);
-  backdrop-filter: saturate(120%) blur(4px);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-}
-@media (prefers-color-scheme: dark){
-  .topbar{ background: rgba(23,23,23,0.9); border-bottom-color: rgba(255,255,255,0.08); }
-}
-@media print { .topbar{ visibility: hidden !important; } }
-</style>
-
-
-<style>
-.collapsible > summary {
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
-  cursor:pointer; list-style:none; user-select:none;
-  margin:0; padding:4px 2px;
-}
-.collapsible > summary::-webkit-details-marker { display:none; }
-.collapsible > summary .sum-title { font-size:16px; font-weight:700; }
-.collapsible > summary::before {
-  content:"▸"; margin-right:8px; font-size:14px; transform-origin:center;
-  transition: transform .2s ease;
-}
-.collapsible[open] > summary::before { content:"▾"; }
-.sum-actions { display:inline-flex; align-items:center; gap:6px; }
-@media print { .collapsible > summary::before { content:""; } }
-</style>
-
-
-<style>
-.main-actions{ margin: 8px 0 10px; }
-</style>
-
-
-<style>
-#pengaturan-actions-row{ margin-top: 8px; }
-</style>
-
-
-<style>
-/* Make only the search sticky, not the whole header */
-.topbar{ position: static !important; background: transparent; border-bottom: none; }
-.search-sticky{
-  position: sticky; top: 0; z-index: 10;
-  background: rgba(255,255,255,0.9);
-  -webkit-backdrop-filter: saturate(120%) blur(4px);
-  backdrop-filter: saturate(120%) blur(4px);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-  padding: 6px 10px;
-}
-@media (prefers-color-scheme: dark){
-  .search-sticky{ background: rgba(23,23,23,0.9); border-bottom-color: rgba(255,255,255,0.08); }
-}
-@media print{ .search-sticky{ visibility: hidden !important; } }
-</style>
-
-
-<style>
-/* Sticky by default (desktop/tablet) */
-.search-sticky{
-  position: sticky; top: 0; z-index: 20;
-  background: rgba(255,255,255,0.9);
-  -webkit-backdrop-filter: saturate(120%) blur(4px);
-  backdrop-filter: saturate(120%) blur(4px);
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-  padding: 6px 10px;
-}
-/* Floating on small screens */
-@media (max-width: 768px){
-  .search-sticky{
-    position: fixed; left: auto; right: 12px; top: 10px; z-index: 50;
-    border: 1px solid rgba(0,0,0,0.12);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    padding: 8px 10px;
-    width: min(86vw, 360px);
-    background: rgba(255,255,255,0.98);
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
   }
-  .container{ padding-top: 72px; } /* Prevent overlap with top content */
-}
-@media (prefers-color-scheme: dark){
-  .search-sticky{ background: rgba(23,23,23,0.9); border-bottom-color: rgba(255,255,255,0.08); }
-  @media (max-width: 768px){
-    .search-sticky{ background: rgba(23,23,23,0.98); border-color: rgba(255,255,255,0.12); }
+
+  .form-label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
   }
-}
-@media print{ .search-sticky{ visibility: hidden !important; } }
-</style>
 
-
-<style>
-:root { --day-zebra: rgba(0,0,0,0.03); }
-@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.04); } }
-#tbl thead th:nth-child(6), #tbl tbody td:nth-child(6),
-#tbl thead th:nth-child(8), #tbl tbody td:nth-child(8),
-#tbl thead th:nth-child(10), #tbl tbody td:nth-child(10),
-#tbl thead th:nth-child(12), #tbl tbody td:nth-child(12) { background: var(--day-zebra); }
-@media print{
-  #tbl thead th, #tbl tbody td { background: transparent !important; }
-}
-</style>
-
-
-<style>
-/* Stronger zebra + apply to card mode */
-/* Slightly stronger contrast */
-:root { --day-zebra: rgba(0,0,0,0.06); }
-@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.10); } }
-/* Cards: zebra by day item (including the day title label) */
-.daygrid .item:nth-child(odd){
-  background: var(--day-zebra);
-  border-radius: 10px;
-  padding: 8px;
-}
-@media print{
-  .daygrid .item{ background: transparent !important; }
-}
-</style>
-
-
-<style>
-/* Enforce zebra for CARD mode (including the day title block) */
-:root { --day-zebra: rgba(0,0,0,0.10); }
-@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.16); } }
-/* Use :nth-of-type to avoid counting text nodes; make it stronger with !important */
-.daygrid > .item:nth-of-type(odd){
-  background-color: var(--day-zebra) !important;
-}
-@media print{ .daygrid > .item{ background: transparent !important; } }
-</style>
-
-
-<style>
-/* Force zebra in CARD mode regardless of inner wrapper structure */
-:root { --day-zebra: rgba(0,0,0,0.10); }
-@media (prefers-color-scheme: dark){ :root { --day-zebra: rgba(255,255,255,0.16); } }
-#cardsWrap .daygrid > *:nth-of-type(odd){
-  background-color: var(--day-zebra) !important;
-}
-#cardsWrap .daygrid > *:nth-of-type(odd) .daytitle{
-  background-color: transparent !important;
-}
-@media print{
-  #cardsWrap .daygrid > *{ background: transparent !important; }
-}
-</style>
-
-
-<style>
-.fabbar .search-box{ margin-top: 6px; }
-.fabbar .search-box input{ min-width: 220px; }
-@media (max-width: 560px){
-  .fabbar .search-box input{ width: 100%; }
-}
-</style>
-
-
-<style>
-@media (max-width: 768px){
-  #tableWrap{ overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  #tableWrap table{ min-width: 900px; }
-}
-</style>
-
-
-<style>
-/* Force the app title to white on-screen */
-.topbar h1, .header h1, h1.app-title, h1#appTitle, h1 {
-  color: #ffffff !important;
-}
-/* Keep print output black for clean PDF */
-@media print{
-  .topbar h1, .header h1, h1.app-title, h1#appTitle, h1 {
-    color: #000000 !important;
+  .date-field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
   }
-}
-</style>
 
-
-<style>
-/* ===== Layout polish ===== */
-#secOptions { margin-top: 8px; }
-#secOptions .row { gap: 10px; }
-#secOptions .row > div { flex: 1 1 200px; min-width: 180px; }
-#secOptions input.input, #secOptions select.input { width: 100% !important; }
-/* Grouped cards spacing */
-#secOptions > .card { margin-top: 10px; }
-#pengaturan-actions-row { gap: 8px; flex-wrap: wrap; }
-#pengaturan-actions-row .btn { min-width: max(140px, 18ch); }
-/* Headings and chips spacing */
-.card h3 { margin: 0 0 8px !important; }
-.chip { line-height: 1.2; }
-/* Table wrapper refine */
-#tableWrap > div { border-radius: 12px; overflow: hidden; }
-/* Make main action row nicely spaced */
-.main-actions .btn { min-height: 40px; }
-</style>
-
-
-<style>
-.pengaturan-card { border-radius: 12px; }
-.pengaturan-card .subcard { background: transparent; box-shadow: none; border: 0; padding: 0; margin-top: 8px; }
-.pengaturan-card .subcard + .subcard { margin-top: 14px; border-top: 1px dashed rgba(0,0,0,.15); padding-top: 10px; }
-@media (prefers-color-scheme: dark){
-  .pengaturan-card .subcard + .subcard { border-top-color: rgba(255,255,255,.2); }
-}
-</style>
-
-
-<style>
-/* ==== Pengaturan layout tidy (scoped) ==== */
-.pengaturan-card{
-  border-radius: 12px;
-  padding: 12px 14px;
-  border: 1px solid rgba(0,0,0,.08);
-  box-shadow: 0 1px 6px rgba(0,0,0,.05);
-}
-@media (prefers-color-scheme: dark){
-  .pengaturan-card{ border-color: rgba(255,255,255,.12); box-shadow: 0 1px 6px rgba(0,0,0,.35); }
-}
-.pengaturan-card h3{
-  margin: 0 0 10px !important;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
-}
-.pengaturan-card .subcard{
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  padding: 0;
-  margin-top: 8px;
-}
-.pengaturan-card .subcard + .subcard{
-  margin-top: 14px;
-  border-top: 1px dashed rgba(0,0,0,.14);
-  padding-top: 10px;
-}
-@media (prefers-color-scheme: dark){
-  .pengaturan-card .subcard + .subcard{ border-top-color: rgba(255,255,255,.24); }
-}
-
-/* Form rows inside Pengaturan: aligned labels & inputs */
-#secOptions .row{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-#secOptions .row label.muted{ flex: 0 0 180px; max-width: 180px; }
-#secOptions .row input.input, #secOptions .row select.input, #secOptions .row .input{
-  flex: 1 1 260px; min-width: 220px;
-}
-/* Chips list (Master Rumah) */
-#secOptions .chips{ display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
-#secOptions .chip{ border-radius: 999px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 6px; }
-
-/* Actions row under Pengaturan */
-#pengaturan-actions-row{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-#pengaturan-actions-row .btn{ min-width: max(132px, 16ch); line-height: 1.2; }
-
-/* Keep mobile comfortable */
-@media (max-width: 680px){
-  #secOptions .row label.muted{ flex-basis: 100%; max-width: none; margin-bottom: 2px; }
-  #secOptions .row input.input, #secOptions .row select.input, #secOptions .row .input{ flex-basis: 100%; min-width: 0; }
-}
-
-/* Table wrapper corners and spacing */
-#tableWrap > div{ border-radius: 12px; overflow: hidden; }
-
-/* Do not affect print */
-@media print{
-  .pengaturan-card{ border: 0; box-shadow: none; padding: 0; }
-}
-</style>
-
-
-<style>
-/* ===== Global 8pt typography & weight rules ===== */
-html, body { font-size: 8pt !important; }
-body, body * { font-size: 8pt !important; line-height: 1.35; }
-/* Normal-weight everywhere by default */
-h1, h2, h3, h4, h5, h6,
-th, .th, strong, b, label, summary,
-.btn, .chip, .muted { font-weight: normal !important; }
-/* Keep only the app title bold */
-.topbar h1, .header h1, h1.app-title, h1#appTitle { font-weight: 700 !important; }
-/* Preserve existing white title on screen (already set elsewhere), but black on print */
-@media print{
-  .topbar h1, .header h1, h1.app-title, h1#appTitle { color: #000 !important; }
-  body, body * { color: #000 !important; }
-}
-</style>
-
-
-<style>
-/* Icon-only delete buttons */
-.btn.icon{
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:6px; min-width:auto; width:30px; height:30px; border-radius:10px;
-}
-.btn.icon.small{ width:26px; height:26px; padding:4px; border-radius:8px; }
-.btn.icon svg{ width:14px; height:14px; display:block; }
-@media (max-width: 900px){
-  .btn.icon{ width:34px; height:34px; }
-  .btn.icon.small{ width:30px; height:30px; }
-  .btn.icon svg{ width:16px; height:16px; }
-}
-</style>
-
-
-<style>
-#mainActionsFixed{ position:relative; z-index:5; margin:10px 0 14px; display:flex; flex-wrap:wrap; gap:8px; }
-#mainActionsFixed .btn{ min-height:32px; padding:6px 10px; }
-@media print{ #mainActionsFixed{ visibility: hidden !important; } }
-</style>
-
-
-<style>
-/* ===== Card Mode: compact smartphone layout ===== */
-@media (max-width: 430px) {
-  /* Card shell */
-  .cards, #cardsWrap, .cards-container{ padding: 6px !important; }
-  .worker-card, .card{
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 8px 10px !important;
-    border-radius: 10px !important;
-    font-size: 12px !important;
-    line-height: 1.25 !important;
+  .cal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.6rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
   }
-  /* Card header & titles */
-  .worker-card h3, .card h3{
-    font-size: 13px !important;
-    margin: 0 0 6px !important;
-    line-height: 1.2 !important;
+
+  .cal-btn svg {
+    width: 18px;
+    height: 18px;
   }
-  /* Grid/rows inside cards */
-  .worker-card .row, .card .row{
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 6px !important;
+
+  .cal-btn:hover {
+    background: rgba(30, 41, 59, 0.75);
+    border-color: rgba(148, 163, 184, 0.55);
   }
-  /* Labels & inline fields */
-  .worker-card label, .card label{
-    font-size: 12px !important;
+
+  .cal-btn:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
   }
-  .worker-card .field, .card .field{
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 6px;
-  }
-  /* Inputs/selects/buttons inside cards */
-  .worker-card input, .worker-card select,
-  .card input, .card select{
-    height: 28px !important;
-    padding: 2px 6px !important;
-    font-size: 12px !important;
-  }
-  .worker-card .bonus-line input, .card .bonus-line input{
-    height: 28px !important;
-    padding: 2px 6px !important;
-    max-width: 120px !important;
-  }
-  .worker-card .btn, .card .btn{
-    min-height: 28px !important;
-    padding: 4px 8px !important;
-    font-size: 12px !important;
-  }
-  .worker-card .btn.icon, .card .btn.icon{
-    width: 28px !important; height: 28px !important;
-  }
-  .worker-card .btn.icon svg, .card .btn.icon svg{
-    width: 16px !important; height: 16px !important;
-  }
-  /* Tighten vertical rhythm between sections */
-  .worker-card + .worker-card, .card + .card{ margin-top: 8px !important; }
-  /* Totals row text smaller but readable */
-  .worker-card .total, .card .total{
-    font-size: 12px !important;
-  }
-}
-</style>
 
-<style>
-
-/* === Injected by ChatGPT: Table vertical scroll with sticky header/footer === */
-#tableWrap{
-  overflow-y: auto;              /* enable vertical scroll */
-  max-height: min(72vh, 720px);  /* contain table height */
-}
-
-/* sticky header */
-#tbl thead th{
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--card, #fff);
-}
-
-/* sticky footer total */
-#tbl tfoot td{
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  background: var(--card, #fff);
-  box-shadow: 0 -1px 0 var(--border, rgba(0,0,0,.08));
-}
-
-/* mobile: give more room accounting for search/FAB bars */
-@media (max-width: 768px){
-  #tableWrap{
-    max-height: calc(100vh - 220px);
-  }
-}
-
-</style>
-<style>
-
-/* === Injected by ChatGPT (tidy): sticky header/footer & table polish === */
-:root{
-  --c-bg: var(--card, #ffffff);
-  --c-border: var(--border, rgba(0,0,0,.08));
-  --c-text: var(--text, #111827);
-  --c-muted: var(--muted, #6b7280);
-}
-
-#tableWrap{
-  position: relative;
-  overflow: auto; /* both axes */
-  background: var(--c-bg);
-  border: 1px solid var(--c-border);
-  border-radius: 12px;
-}
-
-/* Ensure inner min-width container keeps the table wide */
-#tableWrap > div{
-  border: none !important;        /* avoid double border */
-  border-radius: 12px;
-}
-
-/* Base table polish */
-#tbl{
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed;
-  color: var(--c-text);
-  font-size: 12px;
-}
-#tbl th, #tbl td{
-  padding: 8px 10px;
-  line-height: 1.2;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--c-border);
-  background: var(--c-bg);
-  box-sizing: border-box;
-}
-#tbl thead th{
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: .01em;
-  white-space: nowrap;
-}
-
-/* Zebra rows for readability */
-#tbl tbody tr:nth-child(odd) td{ background: color-mix(in oklab, var(--c-bg) 92%, black); }
-#tbl tbody tr:hover td{ background: color-mix(in oklab, var(--c-bg) 86%, black); }
-
-/* Sticky overlay containers */
-#tableWrap .sticky-header,
-#tableWrap .sticky-footer{
-  position: sticky;
-  left: 0; right: 0;
-  z-index: 40;
-  background: var(--c-bg);
-}
-#tableWrap .sticky-header{
-  top: 0;
-  box-shadow: 0 1px 0 var(--c-border), 0 6px 10px rgba(0,0,0,.04);
-}
-#tableWrap .sticky-footer{
-  bottom: 0;
-  box-shadow: 0 -1px 0 var(--c-border), 0 -6px 10px rgba(0,0,0,.04);
-}
-#tableWrap .sticky-header table,
-#tableWrap .sticky-footer table{
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed;
-}
-#tableWrap .sticky-header th,
-#tableWrap .sticky-footer td{
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--c-border);
-}
-#tableWrap .sticky-footer td{
-  border-top: 1px solid var(--c-border);
-}
-
-/* Hide original thead/tfoot to prevent double lines */
-#tbl thead.is-hidden th,
-#tbl tfoot.is-hidden td{ visibility: hidden !important; }
-
-/* Prevent overlap of first/last rows by adding padding via CSS vars */
-#tableWrap.padding-for-sticky{
-  --stickyHeadH: 0px;
-  --stickyFootH: 0px;
-  padding-top: var(--stickyHeadH);
-  padding-bottom: var(--stickyFootH);
-}
-
-/* Compact on mobile */
-@media (max-width: 768px){
-  #tbl{ font-size: 11px; }
-  #tbl th, #tbl td{ padding: 7px 8px; }
-  #tableWrap{ max-height: calc(100vh - 200px); }
-}
-
-</style>
-<style>
-
-/* === Injected by ChatGPT: flush-to-container (no top/bottom gap) === */
-#tableWrap.padding-for-sticky{
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-#tbl tbody tr:first-child td{ border-top: 1px solid var(--c-border); }
-#tbl tbody::before{
-  content: "";
-  display: table-row;
-  height: var(--stickyHeadH, 0px);
-}
-#tbl tbody::after{
-  content: "";
-  display: table-row;
-  height: var(--stickyFootH, 0px);
-}
-
-</style>
-
-
-<!-- === Hide Kelas & Group: CSS v2 === -->
-<style>
-/* Fallback by column index */
-body.hide-cg #tbl thead th:nth-child(3),
-body.hide-cg #tbl tbody td:nth-child(3),
-body.hide-cg #tbl thead th:nth-child(4),
-body.hide-cg #tbl tbody td:nth-child(4) {
-  visibility: hidden !important;
-  width: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-/* Class-based (preferred): applied by JS after detecting the real indices */
-body.hide-cg #tbl th.col-kelas,
-body.hide-cg #tbl td.col-kelas,
-body.hide-cg #tbl th.col-group,
-body.hide-cg #tbl td.col-group {
-  visibility: hidden !important;
-  width: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-/* Hide in Card view (already tagged via JS/observer) */
-body.hide-cg #cardsWrap .kv.hide-cg { visibility: hidden !important; }
-
-.settings-row { display:flex; align-items:center; gap:.5rem; margin:.5rem 0; }
-.settings-row input[type="checkbox"] { transform: translateY(1px); }
-</style>
-
-<style>
-/* Aggressive: any element tagged as hide-cg-el disappears when hide mode is on */
-body.hide-cg .hide-cg-el { visibility: hidden !important; visibility: hidden !important; width:0 !important; padding:0 !important; margin:0 !important; border:0 !important; }
-</style>
-
-
-<style>
-/* === Safe hide: keep layout aligned by hiding content only === */
-body.hide-cg #tbl thead th:nth-child(3),
-body.hide-cg #tbl tbody td:nth-child(3),
-body.hide-cg #tbl tfoot td:nth-child(3),
-body.hide-cg #tbl thead th:nth-child(4),
-body.hide-cg #tbl tbody td:nth-child(4),
-body.hide-cg #tbl tfoot td:nth-child(4),
-body.hide-cg #tbl th.col-kelas,
-body.hide-cg #tbl td.col-kelas,
-body.hide-cg #tbl th.col-group,
-body.hide-cg #tbl td.col-group {
-  visibility: hidden !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-/* Card fields already handled via .kv.hide-cg */
-</style>
-
-
-<style>
-/* === Injected: Logo finger heart above title === */
-.topbar{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.logo-mark{
-  font-size: 480px;
-  line-height: 1;
-  color: currentColor; /* white on-screen (already forced), black on print */
-}
-@media print{
-  .logo-mark{ color: #000 !important; }
-}
-</style>
-
-
-<style>
-/* === Injected: Make logo undeniably large & responsive === */
-.topbar{ overflow: visible; }
-div.logo-mark.logo-mark{ font-size: min(60vh,80vw) !important; line-height: 1 !important; }
-@media print{
-  div.logo-mark.logo-mark{ font-size: 64pt !important; color:#000 !important; }
-}
-</style>
-
-
-<style>
-/* === Injected: Set logo to ~30% of viewport === */
-.topbar .logo-mark{ font-size: min(30vh,30vw) !important; line-height: 1 !important; }
-@media print{
-  .topbar .logo-mark{ font-size: 36pt !important; }
-}
-</style>
-
-
-<style>
-/* === Injected: Set logo to ~15% of viewport === */
-.topbar .logo-mark{ font-size: min(15vh,15vw) !important; line-height: 1 !important; }
-@media print{
-  .topbar .logo-mark{ font-size: 28pt !important; }
-}
-</style>
-
-
-<style>
-/* === Injected: Set logo to ~7.5% of viewport === */
-.topbar .logo-mark{ font-size: min(7.5vh,7.5vw) !important; line-height: 1 !important; }
-@media print{
-  .topbar .logo-mark{ font-size: 18pt !important; }
-}
-</style>
-
-
-<style>
-/* === Injected: Tighten table header-body gap === */
-table { border-collapse: collapse !important; border-spacing: 0 !important; }
-thead { margin-bottom: 0 !important; }
-tbody { margin-top: 0 !important; }
-thead th { padding-bottom: 2px !important; }
-tbody td { padding-top: 2px !important; }
-</style>
-
-<style>
-  /* Lebarkan kolom BONUS 3× */
-  #tbl th:nth-child(16),
-  #tbl td:nth-child(16){
-    width: 15ch;              /* pakai ch supaya cukup untuk angka panjang */
-  }
-  /* Pastikan input-nya mengikuti lebar sel */
-  #tbl td:nth-child(16) .input,
-  #tbl td:nth-child(16) input{
+  .input,
+  select.input,
+  textarea.input {
     width: 100%;
-    max-width: none;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: var(--surface);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.95rem;
   }
 
-  /* Opsional: beri ruang ekstra di layar kecil */
-  @media (max-width: 768px){
-    #tbl th:nth-child(16),
-    #tbl td:nth-child(16){ width: 15ch; }
+  select.input {
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, rgba(148, 163, 184, 0.7) 50%),
+      linear-gradient(135deg, rgba(148, 163, 184, 0.7) 50%, transparent 50%);
+    background-position:
+      calc(100% - 1.5rem) calc(50% - 2px),
+      calc(100% - 1rem) calc(50% - 2px);
+    background-size: 0.65rem 0.65rem, 0.65rem 0.65rem;
+    background-repeat: no-repeat;
   }
 
-/* ---- Force logo to black & white (keep size the same) ---- */
-.logo-mark, .logo, .brand-mark {
-  -webkit-filter: grayscale(100%) contrast(120%) !important;
-  filter: grayscale(100%) contrast(120%) !important;
-}
-.logo-mark svg, .logo svg {
-  filter: grayscale(100%) contrast(120%) !important;
-}
+  .input:focus-visible,
+  select.input:focus-visible,
+  textarea.input:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
 
-.logo-mark, .logo, .brand-mark { color: #000 !important; }
-</style>
+  .input.right {
+    text-align: right;
+  }
 
-<style>
-  #mainActionsFixed{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  #mainActionsFixed #periodRow{ order:0; }
-  @media (max-width:640px){
-    #mainActionsFixed #periodRow{ width:100%; order:-1; }
+  .muted {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
   }
-</style>
 
-<style>
-  .date-wrap{ display:inline-flex; align-items:center; gap:4px; border-radius:10px; }
-  .date-wrap .cal-btn{
-    border:1px solid var(--border,#d0d5dd);
-    background: var(--bg,#fff);
-    padding:6px; border-radius:8px; cursor:pointer; line-height:0;
+  .btn.small,
+  .btn.btn-sm {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
   }
-  .date-wrap .cal-btn:hover{ background:#f9fafb; }
-  /* Popup calendar */
-  .mini-cal{
-    position:absolute; z-index:9999; background:#fff; border:1px solid #d0d5dd; border-radius:12px;
-    box-shadow:0 10px 30px rgba(0,0,0,.08); width:280px; overflow:hidden;
+
+  .btn-ghost {
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: var(--text-secondary);
   }
-  .mini-cal header{
-    display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #eef2f7;
-    font-weight:600;
+
+  .btn-ghost:hover {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(148, 163, 184, 0.5);
+    color: var(--text-primary);
   }
-  .mini-cal header .nav{ display:flex; gap:6px; }
-  .mini-cal header .nav button{ padding:4px 8px; border:1px solid #d0d5dd; background:#fff; border-radius:8px; cursor:pointer; }
-  .mini-cal .grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; padding:10px; }
-  .mini-cal .dow{ text-align:center; font-size:12px; color:#667085; }
-  .mini-cal .day{
-    text-align:center; padding:8px 0; border-radius:8px; cursor:pointer; border:1px solid transparent;
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--text-secondary);
   }
-  .mini-cal .day:hover{ background:#f2f4f7; }
-  .mini-cal .day.today{ border-color:#d0d5dd; }
-  .mini-cal .day.out{ color:#98a2b3; }
-  .mini-cal .footer{ display:flex; justify-content:flex-end; gap:8px; padding:10px; border-top:1px solid #eef2f7; }
-  .mini-cal .footer button{ padding:6px 10px; border:1px solid #d0d5dd; background:#fff; border-radius:8px; cursor:pointer; }
+
+  .settings-row input[type='checkbox'] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--accent);
+  }
+
+  .collapsible {
+    overflow: hidden;
+  }
+
+  .collapsible__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+  }
+
+  .collapsible__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .collapsible__summary::after {
+    content: '▸';
+    transition: transform 0.2s ease;
+  }
+
+  .collapsible[open] .collapsible__summary::after {
+    transform: rotate(90deg);
+  }
+
+  .collapsible[open] .collapsible__summary {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    padding-bottom: var(--space-sm);
+    margin-bottom: var(--space-sm);
+  }
+
+  .collapsible__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .subcard {
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .subcard__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+  }
+
+  .subcard__header h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .rate-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .allowance-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    align-items: end;
+  }
+
+  .allowance-grid .form-actions {
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .allowance-grid .form-actions .btn {
+    width: 100%;
+  }
+
+  .inline-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: center;
+  }
+
+  .inline-actions .input {
+    flex: 1 1 220px;
+    min-width: 200px;
+  }
+
+  .inline-actions .btn {
+    flex: 0 0 auto;
+  }
+
+  #rumahList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(15, 23, 42, 0.55);
+    font-size: 0.85rem;
+  }
+
+  .chip button {
+    background: transparent;
+    border: 0;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .chip button:hover {
+    color: var(--text-primary);
+  }
+
+  .chip button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 999px;
+  }
+
+  .pengaturan-actions {
+    margin-top: var(--space-md);
+  }
+
+  .pengaturan-actions .btn {
+    min-width: max(150px, 16ch);
+  }
+
+  .table-card__scroller {
+    overflow-x: auto;
+  }
+
+  #tableWrap {
+    position: relative;
+  }
+
+  #tbl {
+    width: 100%;
+    min-width: 1024px;
+    border-collapse: collapse;
+  }
+
+  #tbl thead th {
+    text-align: left;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(148, 163, 184, 0.78);
+    background: rgba(15, 23, 42, 0.85);
+    padding: 0.85rem 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    backdrop-filter: blur(8px);
+  }
+
+  #tbl tbody td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    font-size: 0.95rem;
+  }
+
+  #tbl tbody tr:nth-child(odd) td {
+    background: rgba(15, 23, 42, 0.35);
+  }
+
+  #tbl tbody tr:hover td {
+    background: rgba(30, 41, 59, 0.55);
+  }
+
+  #tbl tfoot td {
+    padding: 0.9rem 1rem;
+    font-weight: 700;
+    border-top: 1px solid rgba(249, 115, 22, 0.3);
+    background: rgba(15, 23, 42, 0.65);
+  }
+
+  #tbl .center {
+    text-align: center;
+  }
+
+  #tbl .right {
+    text-align: right;
+  }
+
+  #tbl .sum {
+    letter-spacing: 0.08em;
+  }
+
+  #tbl thead th:nth-child(6),
+  #tbl tbody td:nth-child(6),
+  #tbl thead th:nth-child(8),
+  #tbl tbody td:nth-child(8),
+  #tbl thead th:nth-child(10),
+  #tbl tbody td:nth-child(10),
+  #tbl thead th:nth-child(12),
+  #tbl tbody td:nth-child(12) {
+    background: var(--day-zebra);
+  }
+
+  .cellstack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    align-items: flex-end;
+    font-size: 0.8rem;
+  }
+
+  .cellstack .cnt {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+  }
+
+  .cards-body {
+    display: grid;
+    gap: var(--space-sm);
+  }
+
+  .worker-card {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .card-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .name {
+    font-weight: 700;
+    font-size: 1.1rem;
+  }
+
+  .daygrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-sm);
+  }
+
+  .daygrid .item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    background: rgba(15, 23, 42, 0.38);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+  }
+
+  .kv {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .kv .row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+
+  .totals .chip {
+    margin: 0;
+  }
+
+  .fabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: var(--space-sm);
+    z-index: 50;
+  }
+
+  .fabbar__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    background: rgba(11, 18, 32, 0.92);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 18px 38px rgba(8, 15, 29, 0.55);
+    padding: var(--space-md);
+  }
+
+  .fabbar__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: center;
+  }
+
+  .fabbar__row .btn {
+    flex: 1 1 auto;
+    min-width: 140px;
+  }
+
+  .search-box {
+    flex: 1 1 220px;
+  }
+
+  .search-box input {
+    width: 100%;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.18);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #bbf7d0;
+    font-weight: 600;
+  }
+
+  .pill .small {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #dcfce7;
+  }
+
+  .hide-sm {
+    display: table-cell;
+  }
+
+  @media (max-width: 880px) {
+    .actions-buttons .btn {
+      min-width: 0;
+      flex: 1 1 100%;
+    }
+
+    .fabbar__row .btn {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .inline-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .inline-actions .input {
+      min-width: 0;
+    }
+
+    .hide-sm {
+      display: none !important;
+    }
+  }
+
+  .table-card__scroller::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .table-card__scroller::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+  }
+
+  .mini-cal {
+    position: absolute;
+    z-index: 80;
+    background: var(--surface);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 18px 38px rgba(8, 15, 29, 0.55);
+    width: 280px;
+    overflow: hidden;
+  }
+
+  .mini-cal header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    font-weight: 600;
+  }
+
+  .mini-cal header .nav {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .mini-cal header .nav button,
+  .mini-cal .footer button {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    padding: 0.35rem 0.65rem;
+    cursor: pointer;
+  }
+
+  .mini-cal .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.35rem;
+    padding: 0.75rem;
+  }
+
+  .mini-cal .dow {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  .mini-cal .day {
+    text-align: center;
+    padding: 0.5rem 0;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+
+  .mini-cal .day:hover {
+    background: rgba(30, 41, 59, 0.6);
+  }
+
+  .mini-cal .day.today {
+    border-color: rgba(249, 115, 22, 0.5);
+  }
+
+  .mini-cal .day.out {
+    color: rgba(148, 163, 184, 0.6);
+  }
+
+  .mini-cal .footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  body.hide-cg #tbl thead th:nth-child(3),
+  body.hide-cg #tbl tbody td:nth-child(3),
+  body.hide-cg #tbl tfoot td:nth-child(3),
+  body.hide-cg #tbl thead th:nth-child(4),
+  body.hide-cg #tbl tbody td:nth-child(4),
+  body.hide-cg #tbl tfoot td:nth-child(4) {
+    visibility: hidden !important;
+    width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+
+  body.hide-cg #cardsWrap .kv.hide-cg {
+    visibility: hidden !important;
+  }
+
+  .settings-row + .hint-text {
+    margin-top: -0.25rem;
+  }
+
+  #tableWrap .sticky-header,
+  #tableWrap .sticky-footer {
+    position: sticky;
+    left: 0;
+    right: 0;
+    background: rgba(11, 18, 32, 0.96);
+    z-index: 5;
+  }
+
+  #tableWrap .sticky-header {
+    top: 0;
+    box-shadow: 0 1px 0 rgba(148, 163, 184, 0.22), 0 10px 24px rgba(8, 15, 29, 0.45);
+  }
+
+  #tableWrap .sticky-footer {
+    bottom: 0;
+    box-shadow: 0 -1px 0 rgba(148, 163, 184, 0.18), 0 -10px 24px rgba(8, 15, 29, 0.35);
+  }
+
+  #tableWrap .sticky-header table,
+  #tableWrap .sticky-footer table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  #tableWrap .sticky-header th,
+  #tableWrap .sticky-footer td {
+    padding: 0.75rem 1rem;
+    border: 0;
+  }
+
+  #tableWrap .sticky-footer td {
+    font-weight: 700;
+  }
+
+  #tbl thead.is-hidden th,
+  #tbl tfoot.is-hidden td {
+    visibility: hidden !important;
+  }
+
+  #tableWrap.padding-for-sticky {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  #tbl tbody::before,
+  #tbl tbody::after {
+    content: '';
+    display: table-row;
+    height: var(--stickyHeadH, 0px);
+  }
+
+  #tbl tbody::after {
+    height: var(--stickyFootH, 0px);
+  }
+
+  @media print {
+    body {
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
+
+    .page-shell {
+      padding: 0 !important;
+    }
+
+    .card,
+    .subcard,
+    .worker-card {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: 1px solid #0000000f;
+    }
+
+    .btn,
+    .fabbar,
+    #mainActionsFixed,
+    .no-print {
+      display: none !important;
+    }
+
+    #tbl thead th,
+    #tbl tbody td,
+    #tbl tfoot td {
+      background: transparent !important;
+      color: #000000 !important;
+      border-color: #00000033 !important;
+    }
+  }
 </style>
 </head>
 <body>
-  <div class="container">
-    <div class="topbar">
-  <div class="logo-mark" style="font-size:min(7.5vh,7.5vw) !important; line-height:1; line-height:1; line-height:1; line-height:1; display:block; margin-top:8px;" title="finger heart" aria-label="finger heart">🫰</div>
-<h1 class="app-title">Kalkulator Upah 7 Hari</h1></div>
+  <div class="page-shell container">
+    <header class="section-header topbar">
+      <div class="topbar__brand">
+        <span class="logo-mark" title="finger heart" aria-label="finger heart">🫰</span>
+        <div>
+          <h1 class="app-title">Kalkulator Upah 7 Hari</h1>
+          <p class="section-subtitle">Kelola periode kerja, hitung upah dan uang beras, serta simpan snapshot langsung ke Netlify.</p>
+        </div>
+      </div>
+    </header>
+    <main class="page-content">
+      <section class="card main-actions" id="mainActionsFixed">
+        <div class="form-grid period-grid" id="periodRow">
+          <div class="form-field">
+            <label class="form-label" for="periodStart">Periode Mulai</label>
+            <div class="date-field">
+              <input type="date" id="periodStart" class="input">
+              <button type="button" class="cal-btn" data-cal-for="periodStart" aria-label="Buka kalender">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="16" rx="2" ry="2" stroke="currentColor" />
+                  <path d="M16 3v4M8 3v4M3 9h18" stroke="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="periodEnd">Periode Selesai</label>
+            <div class="date-field">
+              <input type="date" id="periodEnd" class="input">
+              <button type="button" class="cal-btn" data-cal-for="periodEnd" aria-label="Buka kalender">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="16" rx="2" ry="2" stroke="currentColor" />
+                  <path d="M16 3v4M8 3v4M3 9h18" stroke="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="actions-buttons">
+          <button class="btn btn-primary" onclick="try{saveAll&&saveAll()}catch(_){ if (typeof save==='function') save('rows', window.rows); else alert('Fungsi simpan tidak tersedia'); }">Simpan</button>
+          <button class="btn btn-secondary" onclick="addWorker()">Tambah Pekerja</button>
+          <button class="btn btn-secondary" onclick="window.print()">Cetak</button>
+          <button class="btn btn-secondary" onclick="try{downloadCSV&&downloadCSV()}catch(_){alert('downloadCSV tidak ditemukan')}">Unduh CSV</button>
+          <button class="btn btn-secondary" onclick="try{downloadJSON&&downloadJSON()}catch(_){alert('downloadJSON tidak ditemukan')}">Unduh JSON</button>
+          <button class="btn btn-secondary btn-sm" onclick="restoreDefaultRows()">Kosongkan</button>
+        </div>
+        <p class="actions-note muted">Menekan <strong>Simpan</strong> akan menyimpan snapshot terbaru ke Netlify. Jika koneksi gagal, berkas HTML cadangan otomatis diunduh agar tetap bisa dipulihkan secara lokal.</p>
+      </section>
 
-<div class="main-actions" id="mainActionsFixed">
-    <div class="row" id="periodRow" style="gap:8px; align-items:center; flex-wrap:wrap; margin-right:auto;">
-    <label class="muted">Periode</label>
-    <span class="date-wrap">
-  <input type="date" id="periodStart" class="input" style="width:160px;">
-  <button type="button" class="cal-btn" data-cal-for="periodStart" aria-label="Buka kalender">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2" ry="2" stroke="currentColor" />
-      <path d="M16 3v4M8 3v4M3 9h18" stroke="currentColor" />
-    </svg>
-  </button>
-</span>
-    <span class="muted">s/d</span>
-    <span class="date-wrap">
-  <input type="date" id="periodEnd" class="input" style="width:160px;">
-  <button type="button" class="cal-btn" data-cal-for="periodEnd" aria-label="Buka kalender">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="2" ry="2" stroke="currentColor" />
-      <path d="M16 3v4M8 3v4M3 9h18" stroke="currentColor" />
-    </svg>
-  </button>
-</span>
+      <details class="card collapsible" id="secOptions">
+        <summary class="collapsible__summary">
+          <span class="collapsible__title">Pengaturan</span>
+        </summary>
+        <div class="collapsible__body">
+          <div class="settings-row">
+            <input type="checkbox" id="toggleHideCG">
+            <label for="toggleHideCG">Sembunyikan kolom <strong>Kelas</strong> &amp; <strong>Group</strong> (Tabel &amp; Card)</label>
+          </div>
+
+          <section class="subcard">
+            <div class="subcard__header">
+              <h3>Tarif per Kelas (Rp/hari)</h3>
+              <button class="btn btn-ghost btn-sm" onclick="restoreDefaultRates()">Kembalikan Tarif Default</button>
+            </div>
+            <div class="form-grid rate-grid">
+              <div class="form-field">
+                <label class="form-label" for="rateSenior">Senior</label>
+                <input id="rateSenior" type="number" class="input" oninput="classRates['Senior']=Number(this.value||0); rerender();" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="rateTukang">Tukang</label>
+                <input id="rateTukang" type="number" class="input" oninput="classRates['Tukang']=Number(this.value||0); rerender();" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="rateKenek">Kenek</label>
+                <input id="rateKenek" type="number" class="input" oninput="classRates['Kenek']=Number(this.value||0); rerender();" />
+              </div>
+            </div>
+          </section>
+
+          <section class="subcard">
+            <div class="subcard__header">
+              <h3>Uang Beras</h3>
+            </div>
+            <div class="form-grid allowance-grid">
+              <div class="form-field">
+                <label class="form-label" for="thresholdInput">Ambang Uang Beras</label>
+                <input id="thresholdInput" type="number" step="1" min="0" class="input" />
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="berasInput">Nilai Uang Beras</label>
+                <input id="berasInput" type="number" step="1" min="0" class="input" />
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-secondary btn-sm" onclick="updateBerasRule()">Terapkan</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="subcard">
+            <div class="subcard__header">
+              <h3>Master Rumah</h3>
+            </div>
+            <div class="inline-actions">
+              <input id="inpRumah" class="input" placeholder="mis. A11 atau C1" />
+              <button class="btn btn-secondary btn-sm" onclick="addRumah()">Tambah</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearRumah()">Kosongkan Daftar</button>
+              <button class="btn btn-secondary btn-sm" onclick="restoreDefaultRumah()">Pulihkan Default</button>
+            </div>
+            <div id="rumahList"></div>
+            <p class="muted hint-text">Di mobile, geser horisontal bila tabel melebar.</p>
+          </section>
+
+          <div class="actions-buttons pengaturan-actions btn-compact" id="pengaturan-actions-row">
+            <button class="btn btn-secondary" onclick="clearAllDays()">Kosongkan Semua Hari</button>
+            <button class="btn btn-secondary btn-sm" onclick="setView('table')">Mode Tabel</button>
+            <button class="btn btn-secondary btn-sm" onclick="setView('cards')">Mode Card</button>
+            <button class="btn btn-secondary btn-sm" onclick="addWorker()">Tambah Baris</button>
+            <button class="btn btn-secondary" onclick="resetAll()">Reset Semua</button>
+          </div>
+        </div>
+      </details>
+
+      <section id="tableWrap" class="card table-card">
+        <div class="table-card__scroller">
+          <table id="tbl">
+            <thead>
+              <tr>
+                <th class="center">No</th>
+                <th>Nama</th>
+                <th>Kelas</th>
+                <th>Group</th>
+                <th class="right hide-sm">Tarif/Nama</th>
+                <th class="center">Minggu</th>
+                <th class="center">Senin</th>
+                <th class="center">Selasa</th>
+                <th class="center">Rabu</th>
+                <th class="center">Kamis</th>
+                <th class="center">Jumat</th>
+                <th class="center">Sabtu</th>
+                <th class="right">Total Hari</th>
+                <th class="right">Upah Pokok</th>
+                <th class="right">Uang Beras</th>
+                <th class="right">Bonus</th>
+                <th class="right">Total Bayar</th>
+                <th class="hide-sm">Keterangan</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="12" class="right sum">TOTAL</td>
+                <td id="sumHari" class="right sum">0</td>
+                <td id="sumUpahPokok" class="right sum">Rp 0</td>
+                <td id="sumBeras" class="right sum">Rp 0</td>
+                <td id="sumBonus" class="right sum">Rp 0</td>
+                <td id="sumTotalBayar" class="right sum">Rp 0</td>
+                <td class="hide-sm"></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section id="cardsWrap" class="card" style="display:none;">
+        <div id="cardsBody" class="cards-body"></div>
+      </section>
+
+      <details class="card collapsible" id="rekap3">
+        <summary class="collapsible__summary">
+          <span class="collapsible__title">Rekap Total Tarif per Rumah</span>
+        </summary>
+        <div class="collapsible__body">
+          <div id="rekap3Body"></div>
+        </div>
+      </details>
+
+      <details class="card collapsible" id="rekap3day">
+        <summary class="collapsible__summary">
+          <span class="collapsible__title">Rekap per Rumah per Hari</span>
+        </summary>
+        <div class="collapsible__body">
+          <div id="rekap3DayBody"></div>
+        </div>
+      </details>
+    </main>
   </div>
-<button class="btn" onclick="try{saveAll&&saveAll()}catch(_){ if (typeof save==='function') save('rows', window.rows); else alert('Fungsi simpan tidak tersedia'); }">Simpan</button>
-<div class="muted" style="flex-basis:100%; font-size:11px; margin-top:4px;">
-  Menekan "Simpan" akan menyimpan snapshot terbaru ke Netlify. Jika koneksi gagal, berkas HTML cadangan otomatis diunduh agar tetap bisa dipulihkan secara lokal.
-</div>
-  <button class="btn" onclick="window.print()">Cetak</button>
-  <button class="btn" onclick="try{downloadCSV&&downloadCSV()}catch(_){alert('downloadCSV tidak ditemukan')}">Unduh CSV</button>
-  <button class="btn" onclick="try{downloadJSON&&downloadJSON()}catch(_){alert('downloadJSON tidak ditemukan')}">Unduh JSON</button>
-  <button class="btn small" onclick="restoreDefaultRows()">Kosongkan</button>
-  
-  <button class="btn primary" onclick="addWorker()">+ Pekerja</button>
-</div>
 
-
-<details class="card collapsible" id="secOptions">
-
-<!-- === Toggle: Hide Kelas & Group === -->
-<div class="settings-row">
-  <input type="checkbox" id="toggleHideCG">
-  <label for="toggleHideCG">Sembunyikan kolom <b>Kelas</b> & <b>Group</b> (Tabel & Card)</label>
-</div>
-
-      <summary><span class="sum-title">Pengaturan</span></summary>
-<div class="card pengaturan-card" style="margin-top:8px; padding:12px;"><div class="row">
-        <div style="width:220px;">
-          <label class="muted">Senior</label>
-          <input id="rateSenior" type="number" class="input" oninput="classRates['Senior']=Number(this.value||0); rerender();" />
-        </div>
-        <div style="width:220px;">
-          <label class="muted">Tukang</label>
-          <input id="rateTukang" type="number" class="input" oninput="classRates['Tukang']=Number(this.value||0); rerender();" />
-        </div>
-        <div style="width:220px;">
-          <label class="muted">Kenek</label>
-          <input id="rateKenek" type="number" class="input" oninput="classRates['Kenek']=Number(this.value||0); rerender();" />
-        </div>
-      </div>
-
-
-      <div class="subcard">
-<h3 style="margin:0 0 6px;">Tarif per Kelas (Rp/hari)</h3>
-
-      <div class="row" style="justify-content:flex-end; gap:8px;"><button class="btn small" onclick="restoreDefaultRates()">Kembalikan Tarif Default</button>
-      </div>
-<div class="row">
-  <label class="muted">Ambang Uang Beras</label>
-  <input id="thresholdInput" type="number" step="1" min="0" style="width:160px;" />
-  <label class="muted">Nilai Uang Beras</label>
-  <input id="berasInput" type="number" step="1" min="0" style="width:140px;" />
-  <button class="btn small" onclick="updateBerasRule()">Terapkan</button>
-</div>
-
-
-      <div class="subcard">
-<h3 style="margin:0 0 6px;">Master Rumah</h3>
-
-      <div class="row">
-        <input id="inpRumah" class="input" style="width:260px;" placeholder="mis. A11 atau C1" />
-        <button class="btn small" onclick="addRumah()">Tambah</button>
-        <button class="btn small" onclick="clearRumah()">Kosongkan Daftar</button>
-        <button class="btn small" onclick="restoreDefaultRumah()">Pulihkan Default</button>
-      
-      </div>
-
-
-    
-      <div id="rumahList" style="margin-top:6px;"></div>
-      <div class="muted" style="margin-top:6px;"> Di mobile, geser horisontal bila tabel melebar.</div></div>
-
-<div class="row" id="pengaturan-actions-row" style="gap:8px; align-items:center; flex-wrap:wrap;">
-<button class="btn" onclick="clearAllDays()">Kosongkan Semua Hari</button>
-<button class="btn small" onclick="setView('table')">Mode Tabel</button>
-<button class="btn small" onclick="setView('cards')">Mode Card</button>
-<button class="btn small" onclick="addWorker()">Tambah Baris</button>
-<button class="btn" onclick="resetAll()">Reset Semua</button>
-
-</div>
-</details><!-- TABLE MODE -->
-    <div id="tableWrap" class="card scroll-x">
-      <div style="min-width:1000px; border:1px solid var(--border); border-radius:12px;">
-        <table id="tbl">
-          <thead>
-            <tr>
-              <th class="center">No</th>
-              <th>Nama</th>
-              <th>Kelas</th>
-              <th>Group</th>
-              <th class="right hide-sm">Tarif/Nama</th>
-              <th class="center">Minggu</th>
-              <th class="center">Senin</th>
-              <th class="center">Selasa</th>
-              <th class="center">Rabu</th>
-              <th class="center">Kamis</th>
-              <th class="center">Jumat</th>
-              <th class="center">Sabtu</th>
-              <th class="right">Total Hari</th>
-              <th class="right">Upah Pokok</th>
-              <th class="right">Uang Beras</th>
-              <th class="right">Bonus</th>
-              <th class="right">Total Bayar</th>
-              <th class="hide-sm">Keterangan</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-          <tfoot>
-            <tr>
-              <td colspan="12" class="right sum">TOTAL</td>
-              <td id="sumHari" class="right sum">0</td>
-              <td id="sumUpahPokok" class="right sum">Rp 0</td>
-              <td id="sumBeras" class="right sum">Rp 0</td>
-              <td id="sumBonus" class="right sum">Rp 0</td>
-              <td id="sumTotalBayar" class="right sum">Rp 0</td>
-              <td class="hide-sm"></td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-
-    <!-- CARD MODE -->
-    <div id="cardsWrap" class="card" style="display:none;">
-      <div id="cardsBody"></div>
-    </div>
-
-    <details class="card collapsible" id="rekap3">
-      <summary><span class="sum-title">Rekap Total Tarif per Rumah</span></summary>
-      <div class="muted"></div>
-      <div id="rekap3Body"></div>
-    </details>
-    <details class="card collapsible" id="rekap3day">
-      <summary><span class="sum-title">Rekap per Rumah per Hari</span></summary>
-      <div class="muted"></div>
-      <div id="rekap3DayBody"></div>
-    </details>
-  </div>
-
-  <!-- Sticky action bar (mobile-friendly running totals) -->
-  <div class="fabbar">
-    <div class="card">
-      <div class="row">
+  <div class="fabbar no-print">
+    <div class="card fabbar__card">
+      <div class="fabbar__row">
         <span class="pill">Total Bayar: <span id="pillTotal" class="small">Rp 0</span></span>
       </div>
-      <div class="row">
-        
-        <button class="btn ghost" onclick="setView(toggleView())">Ganti Mode</button>
-  <div class="search-box no-print">
-        <input id="searchName" type="search" placeholder="Cari nama pekerja…" autocomplete="off" />
-      </div>
-
+      <div class="fabbar__row">
+        <button class="btn btn-ghost" onclick="setView(toggleView())">Ganti Mode</button>
+        <div class="search-box">
+          <input id="searchName" class="input" type="search" placeholder="Cari nama pekerja…" autocomplete="off" />
+        </div>
       </div>
     </div>
   </div>
