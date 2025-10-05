@@ -2829,6 +2829,194 @@ document.addEventListener('DOMContentLoaded', () => {
   function loadJSON(k, d){ try{return JSON.parse(localStorage.getItem(k))??d;}catch(_){return d;} }
   function saveJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } }
 
+  function extractSnapshotDataFromHtml(html){
+    if (typeof html !== 'string') return null;
+    const match = html.match(/window.__UPAH_DATA__\s*=\s*(\{[\s\S]*?\});/);
+    if (!match) return null;
+    try { return JSON.parse(match[1]); }
+    catch (err){ console.warn('Restore snapshot: gagal parsing data HTML', err); return null; }
+  }
+
+  function extractSnapshotMetaFromHtml(html){
+    if (typeof html !== 'string') return null;
+    const match = html.match(/<!--\s*snapshot-meta:([^>]+)-->/i);
+    if (!match) return null;
+    try {
+      const decoded = decodeURIComponent(match[1]);
+      const parsed = JSON.parse(decoded);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (err){
+      console.warn('Restore snapshot: gagal parsing meta HTML', err);
+      return null;
+    }
+  }
+
+  function persistLocalSnapshot(start, end, dataset, meta){
+    if (!start) return;
+    try {
+      const record = {
+        rows: Array.isArray(dataset.rows) ? structuredClone(dataset.rows) : [],
+        rates: dataset.classRates && typeof dataset.classRates === 'object' ? structuredClone(dataset.classRates) : {},
+        rumah: Array.isArray(dataset.rumah) ? structuredClone(dataset.rumah) : undefined,
+        thr: Number(dataset.allowanceThreshold ?? dataset.thr ?? allowanceThreshold ?? 3.9),
+        amt: Number(dataset.allowanceAmount ?? dataset.amt ?? allowanceAmount ?? 20000),
+        periodeMulai: start,
+        periodeSelesai: end || '',
+        ts: Date.now(),
+        snapshotKey: meta && meta.snapshotKey ? meta.snapshotKey : undefined,
+        snapshotCreatedAt: meta && meta.snapshotCreatedAt ? meta.snapshotCreatedAt : undefined,
+        snapshotUpdatedAt: meta && meta.snapshotUpdatedAt ? meta.snapshotUpdatedAt : undefined,
+      };
+      if (record.rumah === undefined) delete record.rumah;
+      saveJSON(SNAP_PREFIX + start, record);
+    } catch (err){
+      console.warn('Restore snapshot: gagal menyimpan cache lokal', err);
+    }
+  }
+
+  async function fetchSnapshotByKey(snapshotKey){
+    if (!snapshotKey) return null;
+    let client;
+    try {
+      client = await ensureApiClient();
+    } catch (err){
+      console.warn('Restore snapshot: gagal menyiapkan API client', err);
+      return null;
+    }
+    if (!client || typeof client.createRequest !== 'function') return null;
+
+    let requestConfig;
+    try {
+      requestConfig = client.createRequest('item', { method: 'GET', query: { key: snapshotKey } });
+    } catch (err){
+      console.warn('Restore snapshot: gagal membuat konfigurasi request', err);
+      return null;
+    }
+
+    const init = { ...requestConfig.init, cache: 'no-store' };
+
+    try {
+      const response = await fetch(requestConfig.url, init);
+      if (!response.ok){
+        console.warn('Restore snapshot: respons server tidak OK', response.status, response.statusText);
+        return null;
+      }
+      const payload = await response.json().catch(() => null);
+      if (!payload || payload.ok === false || !payload.item){
+        console.warn('Restore snapshot: payload snapshot tidak valid');
+        return null;
+      }
+      const item = payload.item || {};
+      const html = typeof item.html === 'string' ? item.html : '';
+      const dataset = extractSnapshotDataFromHtml(html);
+      if (!dataset){
+        console.warn('Restore snapshot: data snapshot kosong');
+        return null;
+      }
+      const htmlMeta = extractSnapshotMetaFromHtml(html) || {};
+      const mergedMeta = {
+        ...(item.meta && typeof item.meta === 'object' ? item.meta : {}),
+        ...(htmlMeta && typeof htmlMeta === 'object' ? htmlMeta : {}),
+      };
+      const periodMeta = mergedMeta && typeof mergedMeta.period === 'object' ? mergedMeta.period : null;
+      const periodStart = periodMeta && typeof periodMeta.start === 'string' ? periodMeta.start : '';
+      const periodEnd = periodMeta && typeof periodMeta.end === 'string' ? periodMeta.end : '';
+      return {
+        dataset,
+        periodStart: periodStart || '',
+        periodEnd: periodEnd || '',
+        snapshotKey: item.snapshotKey || snapshotKey,
+        snapshotCreatedAt: item.createdAt || mergedMeta.createdAt || mergedMeta.generatedAt || null,
+        snapshotUpdatedAt: item.updatedAt || mergedMeta.updatedAt || null,
+        meta: mergedMeta,
+      };
+    } catch (err){
+      console.warn('Restore snapshot: gagal memuat snapshot dari server', err);
+      return null;
+    }
+  }
+
+  function applySnapshotDataset(payload, opts){
+    if (!payload || !payload.dataset || !activeItem) return false;
+    const options = opts && typeof opts === 'object' ? opts : {};
+    const dataset = payload.dataset;
+    const rowsData = Array.isArray(dataset.rows) ? structuredClone(dataset.rows) : [];
+    const ratesData = dataset.classRates && typeof dataset.classRates === 'object'
+      ? structuredClone(dataset.classRates)
+      : (dataset.rates && typeof dataset.rates === 'object' ? structuredClone(dataset.rates) : cloneDefaultRates());
+    const rumahData = Array.isArray(dataset.rumah) ? structuredClone(dataset.rumah) : null;
+    const thresholdRaw = dataset.allowanceThreshold ?? dataset.thr;
+    const amountRaw = dataset.allowanceAmount ?? dataset.amt;
+
+    activeItem.rows = rows = rowsData;
+    activeItem.classRates = classRates = ratesData;
+    if (rumahData){
+      activeItem.rumah = rumah = rumahData;
+    } else {
+      rumah = activeItem.rumah = Array.isArray(activeItem.rumah) ? activeItem.rumah : cloneDefaultRumah();
+    }
+
+    const threshold = Number.isFinite(Number(thresholdRaw)) ? Number(thresholdRaw) : (activeItem.allowanceThreshold ?? 3.9);
+    const amount = Number.isFinite(Number(amountRaw)) ? Number(amountRaw) : (activeItem.allowanceAmount ?? 20000);
+    activeItem.allowanceThreshold = allowanceThreshold = threshold;
+    activeItem.allowanceAmount = allowanceAmount = amount;
+
+    const periodStart = options.periodStart || payload.periodStart || dataset.periodeMulai || '';
+    const periodEnd = options.periodEnd || payload.periodEnd || dataset.periodeSelesai || '';
+
+    if (periodStart || periodEnd){
+      updatePeriod(periodStart || '', periodEnd || '', { skipAutosave: true });
+    }
+    syncPeriodInputs();
+
+    rows.forEach(r=>{ if(r && r.bonus===undefined) r.bonus=''; });
+
+    bootRatesUI();
+    renderRumah();
+    bootBerasUI();
+    rerender();
+
+    save('classRates', classRates);
+    save('rumah', rumah);
+    save('rows', rows);
+    scheduleAutosave('allowance');
+
+    const meta = payload.meta && typeof payload.meta === 'object' ? payload.meta : {};
+    const snapshotMeta = {
+      snapshotKey: payload.snapshotKey || null,
+      snapshotCreatedAt: payload.snapshotCreatedAt || null,
+      snapshotUpdatedAt: payload.snapshotUpdatedAt || null,
+      hasSnap: Boolean(payload.snapshotKey),
+      meta,
+    };
+    window.__upahLastSnapshotMeta = snapshotMeta;
+
+    if (typeof window.__saveWeeklyToHistory === 'function'){
+      try {
+        window.__saveWeeklyToHistory({
+          snapshotKey: payload.snapshotKey || null,
+          snapshotCreatedAt: payload.snapshotCreatedAt || null,
+          hasSnap: Boolean(payload.snapshotKey),
+        });
+      } catch (err){
+        console.warn('Restore snapshot: gagal memperbarui history', err);
+      }
+    }
+
+    const cacheKey = periodStart || (options.periodStart || '');
+    if (cacheKey){
+      persistLocalSnapshot(cacheKey, periodEnd || '', {
+        rows,
+        classRates,
+        rumah,
+        allowanceThreshold: threshold,
+        allowanceAmount: amount,
+      }, snapshotMeta);
+    }
+
+    return true;
+  }
+
   // 1) Extend weekly save to also snapshot raw rows & settings
   (function extendSave(){
     const _origSaveAll = window.saveAll;
@@ -2841,12 +3029,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = {
           rows: Array.isArray(activeItem && activeItem.rows) ? activeItem.rows : [],
           rates: (activeItem && activeItem.classRates) ? activeItem.classRates : {},
+          rumah: Array.isArray(activeItem && activeItem.rumah) ? activeItem.rumah : undefined,
           thr: Number(activeItem && activeItem.allowanceThreshold !== undefined ? activeItem.allowanceThreshold : allowanceThreshold),
           amt: Number(activeItem && activeItem.allowanceAmount !== undefined ? activeItem.allowanceAmount : allowanceAmount),
           periodeMulai: start,
           periodeSelesai: activeItem ? (activeItem.sd || '') : '',
-          ts: Date.now()
+          ts: Date.now(),
         };
+        if (payload.rumah === undefined) delete payload.rumah;
         saveJSON(SNAP_PREFIX + start, payload);
 
         const meta = (window.__upahLastSnapshotMeta && typeof window.__upahLastSnapshotMeta === 'object') ? window.__upahLastSnapshotMeta : null;
@@ -2884,36 +3074,61 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   })();
 
-  // 2) If opened with ?hist=YYYY-MM-DD, restore that periode's snapshot into current working storage
-  (function maybeRestore(){
-    const p = new URLSearchParams(location.search);
-    const histStart = p.get('hist');
+  // 2) Restore snapshot via ?snapshot=<key> atau fallback ?hist=YYYY-MM-DD
+  (async function maybeRestore(){
+    const params = new URLSearchParams(location.search);
+    const snapshotParamRaw = params.get('snapshot') || params.get('snapshotKey') || params.get('snap') || params.get('key');
+    const histStartRaw = params.get('hist');
+    const snapshotParam = snapshotParamRaw ? snapshotParamRaw.trim() : '';
+    const histStart = histStartRaw ? histStartRaw.trim() : '';
+
+    if (!snapshotParam && !histStart) return;
+
+    if (snapshotParam){
+      const remote = await fetchSnapshotByKey(snapshotParam);
+      if (remote && applySnapshotDataset(remote, { periodStart: remote.periodStart || histStart, periodEnd: remote.periodEnd })){
+        return;
+      }
+    }
+
     if (!histStart) return;
-    try {
-      const snap = loadJSON(SNAP_PREFIX + histStart, null);
-      if (!snap) return;
-      if (!activeItem) return;
-      activeItem.rows = Array.isArray(snap.rows) ? structuredClone(snap.rows) : [];
-      activeItem.classRates = snap.rates && typeof snap.rates === 'object' ? structuredClone(snap.rates) : cloneDefaultRates();
-      activeItem.allowanceThreshold = Number(snap.thr ?? 3.9);
-      activeItem.allowanceAmount = Number(snap.amt ?? 20000);
-      activeItem.periode = snap.periodeMulai || '';
-      activeItem.sd = snap.periodeSelesai || '';
-      rows = activeItem.rows;
-      classRates = activeItem.classRates;
-      allowanceThreshold = activeItem.allowanceThreshold;
-      allowanceAmount = activeItem.allowanceAmount;
-      rumah = activeItem.rumah = Array.isArray(activeItem.rumah) ? activeItem.rumah : cloneDefaultRumah();
-      rows.forEach(r=>{ if(r.bonus===undefined) r.bonus=''; });
-      bootRatesUI(); renderRumah(); bootBerasUI();
-      syncPeriodInputs();
-      rerender();
-      save('classRates', classRates);
-      save('rumah', rumah);
-      save('rows', rows);
-      scheduleAutosave('allowance');
-    } catch(e){ console.warn('Restore snapshot failed', e); }
-  })();
+
+    const snap = loadJSON(SNAP_PREFIX + histStart, null);
+    if (snap){
+      const payload = {
+        dataset: {
+          rows: Array.isArray(snap.rows) ? snap.rows : [],
+          classRates: snap.rates && typeof snap.rates === 'object' ? snap.rates : null,
+          rumah: Array.isArray(snap.rumah) ? snap.rumah : null,
+          allowanceThreshold: snap.thr,
+          allowanceAmount: snap.amt,
+          periodeMulai: snap.periodeMulai || histStart || '',
+          periodeSelesai: snap.periodeSelesai || '',
+        },
+        periodStart: snap.periodeMulai || histStart || '',
+        periodEnd: snap.periodeSelesai || '',
+        snapshotKey: snap.snapshotKey || null,
+        snapshotCreatedAt: snap.snapshotCreatedAt || null,
+        snapshotUpdatedAt: snap.snapshotUpdatedAt || null,
+        meta: {},
+      };
+      if (applySnapshotDataset(payload, { periodStart: payload.periodStart, periodEnd: payload.periodEnd })){
+        return;
+      }
+    }
+
+    const history = loadJSON(KEY_HISTORY, []);
+    const match = Array.isArray(history) ? history.find(x => x && x.periodeMulai === histStart) : null;
+    if (match && match.snapshotKey){
+      const remote = await fetchSnapshotByKey(match.snapshotKey);
+      if (remote){
+        const periodEnd = remote.periodEnd || match.periodeSelesai || '';
+        if (applySnapshotDataset(remote, { periodStart: histStart, periodEnd })){
+          return;
+        }
+      }
+    }
+  })().catch(err => console.warn('Restore snapshot: gagal memuat data', err));
 })();
 </script>
 
